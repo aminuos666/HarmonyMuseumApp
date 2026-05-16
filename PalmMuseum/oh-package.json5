@@ -1,0 +1,10 @@
+{
+  "modelVersion": "6.1.0",
+  "name": "palm-museum",
+  "version": "1.0.0",
+  "description": "掌上博物馆 - HarmonyOS ArkTS 文物鉴赏应用",
+  "main": "Index.ets",
+  "dependencies": {},
+  "author": "",
+  "license": "Apache-2.0"
+}

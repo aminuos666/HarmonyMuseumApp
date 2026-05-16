@@ -1,0 +1,260 @@
+{
+  "string": [
+    {
+      "name": "entry_description",
+      "value": "掌上博物馆主模块"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "应用主入口"
+    },
+    {
+      "name": "main_title",
+      "value": "掌上博物馆"
+    },
+    {
+      "name": "tab_home",
+      "value": "首页"
+    },
+    {
+      "name": "tab_search",
+      "value": "搜索"
+    },
+    {
+      "name": "tab_image_search",
+      "value": "识图"
+    },
+    {
+      "name": "tab_profile",
+      "value": "我的"
+    },
+    {
+      "name": "search_placeholder",
+      "value": "搜索文物名称、朝代、关键字..."
+    },
+    {
+      "name": "voice_search_hint",
+      "value": "按住说话，语音搜索文物"
+    },
+    {
+      "name": "sort_by_popular",
+      "value": "按热度排序"
+    },
+    {
+      "name": "sort_by_dynasty",
+      "value": "按年代排序"
+    },
+    {
+      "name": "sort_by_type",
+      "value": "按类型排序"
+    },
+    {
+      "name": "artwork_detail",
+      "value": "文物详情"
+    },
+    {
+      "name": "like",
+      "value": "点赞"
+    },
+    {
+      "name": "favorite",
+      "value": "收藏"
+    },
+    {
+      "name": "comment",
+      "value": "评论"
+    },
+    {
+      "name": "share",
+      "value": "分享"
+    },
+    {
+      "name": "audio_guide",
+      "value": "语音导览"
+    },
+    {
+      "name": "image_search_title",
+      "value": "以图搜图"
+    },
+    {
+      "name": "image_search_hint",
+      "value": "上传或拍摄文物图片，查找相似文物"
+    },
+    {
+      "name": "upload_from_album",
+      "value": "从相册选择"
+    },
+    {
+      "name": "take_photo",
+      "value": "拍照识别"
+    },
+    {
+      "name": "similarity_score",
+      "value": "相似度"
+    },
+    {
+      "name": "voice_ask",
+      "value": "语音提问"
+    },
+    {
+      "name": "login_title",
+      "value": "登录掌上博物馆"
+    },
+    {
+      "name": "register_title",
+      "value": "注册账号"
+    },
+    {
+      "name": "phone_login",
+      "value": "手机号登录"
+    },
+    {
+      "name": "email_login",
+      "value": "邮箱登录"
+    },
+    {
+      "name": "huawei_login",
+      "value": "华为账号一键登录"
+    },
+    {
+      "name": "my_collection",
+      "value": "我的收藏"
+    },
+    {
+      "name": "my_likes",
+      "value": "我的点赞"
+    },
+    {
+      "name": "my_uploads",
+      "value": "我的上传"
+    },
+    {
+      "name": "browse_history",
+      "value": "浏览历史"
+    },
+    {
+      "name": "user_dynamic",
+      "value": "用户动态"
+    },
+    {
+      "name": "notification",
+      "value": "消息通知"
+    },
+    {
+      "name": "settings",
+      "value": "设置"
+    },
+    {
+      "name": "about",
+      "value": "关于"
+    },
+    {
+      "name": "privacy_settings",
+      "value": "隐私设置"
+    },
+    {
+      "name": "review_pending",
+      "value": "审核中"
+    },
+    {
+      "name": "review_approved",
+      "value": "已通过"
+    },
+    {
+      "name": "review_rejected",
+      "value": "未通过"
+    },
+    {
+      "name": "empty_collection",
+      "value": "还没有收藏文物哦"
+    },
+    {
+      "name": "empty_comment",
+      "value": "还没有评论，来说两句吧"
+    },
+    {
+      "name": "upload_photo_title",
+      "value": "上传文物照片"
+    },
+    {
+      "name": "upload_audio_title",
+      "value": "上传语音讲解"
+    },
+    {
+      "name": "upload_video_title",
+      "value": "上传文物视频"
+    },
+    {
+      "name": "add_location",
+      "value": "添加拍摄地点"
+    },
+    {
+      "name": "add_description",
+      "value": "添加说明文字"
+    },
+    {
+      "name": "submit_review",
+      "value": "提交审核"
+    },
+    {
+      "name": "daily_recommendation",
+      "value": "今日推荐"
+    },
+    {
+      "name": "fans",
+      "value": "粉丝"
+    },
+    {
+      "name": "follow",
+      "value": "关注"
+    },
+    {
+      "name": "followed",
+      "value": "已关注"
+    },
+    {
+      "name": "publish_dynamic",
+      "value": "发布动态"
+    },
+    {
+      "name": "dynamic_content_hint",
+      "value": "分享你的文物见闻..."
+    },
+    {
+      "name": "upload_success",
+      "value": "上传成功，等待审核"
+    },
+    {
+      "name": "network_error",
+      "value": "网络异常，请稍后重试"
+    },
+    {
+      "name": "retry",
+      "value": "重试"
+    },
+    {
+      "name": "load_more",
+      "value": "加载更多"
+    },
+    {
+      "name": "no_more_data",
+      "value": "没有更多了"
+    },
+    {
+      "name": "reason_read_media",
+      "value": "用于上传文物图片进行以图搜图匹配"
+    },
+    {
+      "name": "reason_camera",
+      "value": "用于拍照识别文物"
+    },
+    {
+      "name": "reason_microphone",
+      "value": "用于语音搜索与语音提问"
+    },
+    {
+      "name": "reason_write_media",
+      "value": "用于保存文物图片到相册"
+    }
+  ]
+}

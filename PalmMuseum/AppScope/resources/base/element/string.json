@@ -1,0 +1,12 @@
+{
+  "string": [
+    {
+      "name": "app_name",
+      "value": "掌上博物馆"
+    },
+    {
+      "name": "app_description",
+      "value": "沉浸式文物鉴赏与互动体验应用"
+    }
+  ]
+}

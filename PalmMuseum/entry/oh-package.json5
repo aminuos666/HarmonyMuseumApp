@@ -1,0 +1,7 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "掌上博物馆主模块",
+  "main": "Index.ets",
+  "dependencies": {}
+}

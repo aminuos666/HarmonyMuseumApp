@@ -1,0 +1,120 @@
+{
+  "color": [
+    {
+      "name": "start_window_background",
+      "value": "#FFF8F0E6"
+    },
+    {
+      "name": "primary",
+      "value": "#FF8B4513"
+    },
+    {
+      "name": "primary_dark",
+      "value": "#FF6B3410"
+    },
+    {
+      "name": "primary_light",
+      "value": "#FFA0622D"
+    },
+    {
+      "name": "accent",
+      "value": "#FFD4A574"
+    },
+    {
+      "name": "accent_light",
+      "value": "#FFE8C9A0"
+    },
+    {
+      "name": "background",
+      "value": "#FFF8F0E6"
+    },
+    {
+      "name": "background_card",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "background_dark",
+      "value": "#FF2C1810"
+    },
+    {
+      "name": "text_primary",
+      "value": "#FF2C1810"
+    },
+    {
+      "name": "text_secondary",
+      "value": "#FF6B5B4E"
+    },
+    {
+      "name": "text_hint",
+      "value": "#FFA09286"
+    },
+    {
+      "name": "text_on_primary",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "divider",
+      "value": "#FFE8DDD0"
+    },
+    {
+      "name": "divider_light",
+      "value": "#FFF0E8DE"
+    },
+    {
+      "name": "surface",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "error",
+      "value": "#FFD32F2F"
+    },
+    {
+      "name": "success",
+      "value": "#FF2E7D32"
+    },
+    {
+      "name": "warning",
+      "value": "#FFF9A825"
+    },
+    {
+      "name": "like_active",
+      "value": "#FFE53935"
+    },
+    {
+      "name": "favorite_active",
+      "value": "#FFFF8F00"
+    },
+    {
+      "name": "shadow",
+      "value": "#1A000000"
+    },
+    {
+      "name": "overlay",
+      "value": "#80000000"
+    },
+    {
+      "name": "shimmer_base",
+      "value": "#FFE8DDD0"
+    },
+    {
+      "name": "shimmer_highlight",
+      "value": "#FFF5F0EA"
+    },
+    {
+      "name": "tab_bar_background",
+      "value": "#FFFFFFFF"
+    },
+    {
+      "name": "progress_track",
+      "value": "#FFE8DDD0"
+    },
+    {
+      "name": "search_bar_background",
+      "value": "#FFF0E8DE"
+    },
+    {
+      "name": "badge",
+      "value": "#FFE53935"
+    }
+  ]
+}

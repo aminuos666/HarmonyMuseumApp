@@ -1,0 +1,39 @@
+# ── HarmonyOS / ArkTS 构建产物 ──
+build/
+entry/build/
+*.hap
+*.app
+local.properties
+build-config.json5
+
+# ── DevEco Studio / IDE ──
+.idea/
+.hvigor/
+*.iml
+*.iws
+
+# ── 预览缓存 ──
+.preview/
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# ── 环境变量 ──
+.env
+.env.*
+
+# ── OS 文件 ──
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
