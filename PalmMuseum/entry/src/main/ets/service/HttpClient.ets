@@ -15,6 +15,7 @@
  */
 import http from '@ohos.net.http';
 import { BusinessError } from '@ohos.base';
+import { Constants } from '../utils/Constants';
 
 class HttpClientError {
   code: number = 0;
@@ -27,8 +28,10 @@ export class HttpClient {
   private token: string = '';
 
   private constructor() {
-    // 默认使用模拟器地址，可通过 setBaseUrl 修改
-    this.baseUrl = 'http://10.4.80.95:8000';
+    // 默认使用 Constants 中配置的 API 地址
+    // 模拟器：http://10.0.2.2:8000
+    // 真机调试：http://<电脑IP>:8000
+    this.baseUrl = Constants.API_BASE_URL;
   }
 
   static getInstance(): HttpClient {
@@ -113,13 +116,15 @@ export class HttpClient {
     const url = `${this.baseUrl}${path}`;
     const httpRequest = http.createHttp();
     try {
-      const response = await httpRequest.request(url, {
-        method: http.RequestMethod.POST,
-        header: this.buildHeaders(),
-        extraData: body ? JSON.stringify(body) : '',
-        connectTimeout: 15000,
-        readTimeout: 15000,
-      });
+      const reqOptions: Record<string, Object> = {} as Record<string, Object>;
+      reqOptions['method'] = http.RequestMethod.POST;
+      reqOptions['header'] = this.buildHeaders();
+      reqOptions['connectTimeout'] = 15000;
+      reqOptions['readTimeout'] = 15000;
+      if (body) {
+        reqOptions['extraData'] = JSON.stringify(body);
+      }
+      const response = await httpRequest.request(url, reqOptions);
       return this.handleResponse<T>(response);
     } catch (e) {
       throw new Error(`POST ${path} 失败: ${(e as Error).message}`);
@@ -132,13 +137,15 @@ export class HttpClient {
     const url = `${this.baseUrl}${path}`;
     const httpRequest = http.createHttp();
     try {
-      const response = await httpRequest.request(url, {
-        method: http.RequestMethod.PUT,
-        header: this.buildHeaders(),
-        extraData: body ? JSON.stringify(body) : '',
-        connectTimeout: 15000,
-        readTimeout: 15000,
-      });
+      const reqOptions: Record<string, Object> = {} as Record<string, Object>;
+      reqOptions['method'] = http.RequestMethod.PUT;
+      reqOptions['header'] = this.buildHeaders();
+      reqOptions['connectTimeout'] = 15000;
+      reqOptions['readTimeout'] = 15000;
+      if (body) {
+        reqOptions['extraData'] = JSON.stringify(body);
+      }
+      const response = await httpRequest.request(url, reqOptions);
       return this.handleResponse<T>(response);
     } catch (e) {
       throw new Error(`PUT ${path} 失败: ${(e as Error).message}`);
@@ -168,23 +175,41 @@ export class HttpClient {
   /**
    * 上传文件（multipart/form-data）
    * 以图搜图等场景使用
+   *
+   * @param path API 路径，如 '/api/image-search'
+   * @param fileUri 文件 URI（来自 photoAccessHelper.PhotoViewPicker 或 cameraPicker）
+   * @param fieldName 表单字段名，默认 'file'
    */
-  async uploadFile<T>(path: string, filePath: string): Promise<T> {
+  async uploadFile<T>(path: string, fileUri: string, fieldName: string = 'file'): Promise<T> {
     const url = `${this.baseUrl}${path}`;
-
     const httpRequest = http.createHttp();
     try {
-      // multipart 请求使用文件路径，Content-Type 由框架自动设置
-      const response = await httpRequest.request(url, {
+      const uploadHeaders: Record<string, string> = {
+        'Content-Type': 'multipart/form-data',
+      };
+      if (this.token) {
+        uploadHeaders['Authorization'] = `Bearer ${this.token}`;
+      }
+      const reqOptions: http.HttpRequestOptions = {
         method: http.RequestMethod.POST,
-        header: this.buildHeaders('multipart/form-data'),
-        extraData: filePath,
+        header: uploadHeaders,
+        multiFormDataList: [
+          {
+            name: fieldName,
+            filePath: fileUri,
+            contentType: 'image/jpeg',
+            remoteFileName: 'photo.jpg',
+          }
+        ],
         connectTimeout: 30000,
         readTimeout: 60000,
-      });
+      };
+      const response: http.HttpResponse = await httpRequest.request(url, reqOptions);
       return this.handleResponse<T>(response);
     } catch (e) {
-      throw new Error(`UPLOAD ${path} 失败: ${(e as Error).message}`);
+      const eObj = e as BusinessError;
+      const errMsg = eObj.message || `code=${eObj.code}` || JSON.stringify(e);
+      throw new Error(`UPLOAD ${path} 失败: ${errMsg}`);
     } finally {
       httpRequest.destroy();
     }

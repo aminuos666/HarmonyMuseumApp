@@ -1,4 +1,8 @@
 {
   "modelVersion": "6.1.0",
-  "dependencies": {}
+  "dependencies": {},
+  "execution": {},
+  "logging": {},
+  "debugging": {},
+  "nodeOptions": {}
 }

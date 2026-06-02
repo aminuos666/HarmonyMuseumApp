@@ -8,11 +8,10 @@
     "pages/ProfilePage",
     "pages/CollectionPage",
     "pages/CommentPage",
-    "pages/UploadPage",
-    "pages/UserDynamicPage",
-    "pages/NotificationPage",
     "pages/SettingsPage",
     "pages/MyLikesPage",
-    "pages/BrowseHistoryPage"
+    "pages/BrowseHistoryPage",
+    "pages/BrowsePage",
+    "pages/SearchEntryPage"
   ]
 }

@@ -133,6 +133,7 @@ export struct DynamicTab {
         }
         .scrollable(ScrollDirection.Vertical)
         .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
       }
     }
     .width('100%')

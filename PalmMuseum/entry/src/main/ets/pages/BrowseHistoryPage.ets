@@ -1,6 +1,5 @@
 import router from '@ohos.router';
 import { BrowseHistory } from '../model/User';
-import { Artwork } from '../model/Artwork';
 import { UserService } from '../service/UserService';
 import { ArtworkService } from '../service/ArtworkService';
 
@@ -8,7 +7,6 @@ import { ArtworkService } from '../service/ArtworkService';
 @Component
 struct BrowseHistoryPage {
   @State private historyItems: BrowseHistory[] = [];
-  @State private historyArtworks: Artwork[] = [];
   @State private isLoading: boolean = true;
 
   private userService = UserService.getInstance();
@@ -21,15 +19,13 @@ struct BrowseHistoryPage {
   loadHistory(): void {
     // 从缓存加载
     this.historyItems = this.userService.getBrowseHistory();
-    const artworkIds = this.historyItems.map(h => h.artworkId);
-    this.historyArtworks = this.artworkService.getArtworksByIds(artworkIds);
     this.isLoading = false;
     // 异步从后端加载最新数据
     this.userService.fetchBrowseHistory().then((ids) => {
       if (ids.length > 0) {
-        this.historyItems = this.userService.getBrowseHistory();
-        this.artworkService.fetchArtworksByIds(ids).then((artworks) => {
-          this.historyArtworks = artworks;
+        // 预加载艺术品数据到缓存
+        this.artworkService.fetchArtworksByIds(ids).then(() => {
+          this.historyItems = this.userService.getBrowseHistory();
         });
       }
     });
@@ -40,13 +36,14 @@ struct BrowseHistoryPage {
       // 导航栏
       Row() {
         Button() {
-          Text('◀')
+          Text('←')
             .fontSize(22)
             .fontColor($r('app.color.text_primary'))
         }
         .width(40)
         .height(40)
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.search_bar_background'))
+        .borderRadius(20)
         .onClick(() => { router.back(); })
 
         Blank()
@@ -68,7 +65,6 @@ struct BrowseHistoryPage {
         .onClick(async () => {
           await this.userService.clearBrowseHistory();
           this.historyItems = [];
-          this.historyArtworks = [];
         })
       }
       .padding({ left: 8, right: 16, top: 8, bottom: 8 })
@@ -93,14 +89,63 @@ struct BrowseHistoryPage {
         .alignItems(HorizontalAlign.Center)
       } else {
         List({ space: 12 }) {
-          ForEach(this.historyItems, (item: BrowseHistory, index: number) => {
+          ForEach(this.historyItems,
+            (item: BrowseHistory) => {
             ListItem() {
-              this.buildHistoryItem(item, this.historyArtworks[index])
+              // 内联构建历史项 — 直接通过 ID 查找艺术品
+              Row({ space: 12 }) {
+                Image(this.getArtworkCover(item.artworkId))
+                  .width(80)
+                  .height(80)
+                  .objectFit(ImageFit.Cover)
+                  .borderRadius(8)
+                  .backgroundColor($r('app.color.shimmer_base'))
+
+                Column({ space: 4 }) {
+                  Text(this.getArtworkName(item.artworkId))
+                    .fontSize(15)
+                    .fontColor($r('app.color.text_primary'))
+                    .fontWeight(FontWeight.Medium)
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+
+                  Row({ space: 8 }) {
+                    Text(this.getArtworkDynasty(item.artworkId))
+                      .fontSize(12)
+                      .fontColor($r('app.color.text_secondary'))
+                    Text(this.getArtworkType(item.artworkId))
+                      .fontSize(12)
+                      .fontColor($r('app.color.text_secondary'))
+                  }
+
+                  Text(this.formatTime(item.browseTime))
+                    .fontSize(11)
+                    .fontColor($r('app.color.text_hint'))
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+                .height(80)
+                .justifyContent(FlexAlign.Center)
+              }
+              .width('100%')
+              .padding(12)
+              .backgroundColor($r('app.color.background_card'))
+              .borderRadius(12)
+              .shadow({ radius: 6, color: $r('app.color.shadow'), offsetY: 2 })
+              .onClick(() => {
+                router.pushUrl({
+                  url: 'pages/ArtworkDetailPage',
+                  params: { artworkId: item.artworkId }
+                });
+              })
             }
-          })
+          },
+          (item: BrowseHistory): string => item.artworkId + '_' + item.browseTime
+        )
         }
         .width('100%')
         .padding(16)
+        .edgeEffect(EdgeEffect.Spring)
         .layoutWeight(1)
       }
     }
@@ -109,55 +154,24 @@ struct BrowseHistoryPage {
     .backgroundColor($r('app.color.background'))
   }
 
-  @Builder
-  buildHistoryItem(item: BrowseHistory, artwork: Artwork): void {
+  private getArtworkCover(artworkId: string): string {
+    const artwork = this.artworkService.getArtworkById(artworkId);
+    return artwork?.coverImage || '';
+  }
 
-    Row({ space: 12 }) {
-      Image(artwork?.coverImage || '')
-        .width(80)
-        .height(80)
-        .objectFit(ImageFit.Cover)
-        .borderRadius(8)
-        .backgroundColor($r('app.color.shimmer_base'))
+  private getArtworkName(artworkId: string): string {
+    const artwork = this.artworkService.getArtworkById(artworkId);
+    return artwork?.name || '未知文物';
+  }
 
-      Column({ space: 4 }) {
-        Text(artwork?.name || '未知文物')
-          .fontSize(15)
-          .fontColor($r('app.color.text_primary'))
-          .fontWeight(FontWeight.Medium)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
+  private getArtworkDynasty(artworkId: string): string {
+    const artwork = this.artworkService.getArtworkById(artworkId);
+    return artwork?.dynasty || '';
+  }
 
-        Row({ space: 8 }) {
-          Text(artwork?.dynasty || '')
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-          Text(artwork?.type || '')
-            .fontSize(12)
-            .fontColor($r('app.color.text_secondary'))
-        }
-
-        Text(this.formatTime(item.browseTime))
-          .fontSize(11)
-          .fontColor($r('app.color.text_hint'))
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-      .height(80)
-      .justifyContent(FlexAlign.Center)
-    }
-    .width('100%')
-    .padding(12)
-    .backgroundColor($r('app.color.background_card'))
-    .borderRadius(12)
-    .onClick(() => {
-      if (artwork) {
-        router.pushUrl({
-          url: 'pages/ArtworkDetailPage',
-          params: { artworkId: artwork.id }
-        });
-      }
-    })
+  private getArtworkType(artworkId: string): string {
+    const artwork = this.artworkService.getArtworkById(artworkId);
+    return artwork?.type || '';
   }
 
   private formatTime(timestamp: number): string {

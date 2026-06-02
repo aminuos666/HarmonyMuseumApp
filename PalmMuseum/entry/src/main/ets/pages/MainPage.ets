@@ -1,7 +1,7 @@
 import { Index } from './Index';
 import { ExploreTab } from './ExploreTab';
-import { DynamicTab } from './DynamicTab';
 import { ProfileTab } from './ProfileTab';
+import { UserService } from '../service/UserService';
 
 class TabConfig {
   label: string = '';
@@ -16,9 +16,20 @@ struct MainPage {
   private tabs: TabConfig[] = [
     { label: '首页', icon: '🏛' },
     { label: '发现', icon: '🔍' },
-    { label: '动态', icon: '💬' },
     { label: '我的', icon: '👤' }
   ];
+
+  aboutToAppear(): void {
+    // 持久化 Token，App 重启后能恢复登录状态
+    PersistentStorage.persistProp('access_token', '');
+
+    // 尝试恢复登录会话
+    const token = AppStorage.Get<string>('access_token') || '';
+    if (token) {
+      console.info('PalmMuseum 检测到已保存的 Token，尝试恢复登录');
+      UserService.getInstance().restoreSession(token);
+    }
+  }
 
   build() {
     Column() {
@@ -38,21 +49,16 @@ struct MainPage {
         }
         .tabBar(this.buildTabBar(1))
 
-        // 动态 Tab
-        TabContent() {
-          DynamicTab()
-        }
-        .tabBar(this.buildTabBar(2))
-
         // 我的 Tab
         TabContent() {
           ProfileTab()
         }
-        .tabBar(this.buildTabBar(3))
+        .tabBar(this.buildTabBar(2))
       }
       .vertical(false)
       .scrollable(false)
       .barHeight(64)
+      .barBackgroundColor($r('app.color.background_card'))
       .onChange((index: number) => {
         this.currentIndex = index;
       })
@@ -61,24 +67,34 @@ struct MainPage {
     }
     .width('100%')
     .height('100%')
+    .backgroundColor($r('app.color.background'))
   }
 
   @Builder
   buildTabBar(index: number): void {
-    Column({ space: 2 }) {
+    Column({ space: 4 }) {
+      // 顶部细线 — 选中时显示，增加厚重感
+      Divider()
+        .width(24)
+        .height(2)
+        .color($r('app.color.primary'))
+        .opacity(this.currentIndex === index ? 1.0 : 0.0)
+        .borderRadius(1)
+
       Text(this.tabs[index].icon)
-        .fontSize(22)
+        .fontSize(24)
         .fontColor(this.currentIndex === index ?
           $r('app.color.primary') : $r('app.color.text_hint'))
+
       Text(this.tabs[index].label)
-        .fontSize(10)
+        .fontSize(11)
         .fontColor(this.currentIndex === index ?
           $r('app.color.primary') : $r('app.color.text_hint'))
-        .fontWeight(this.currentIndex === index ? FontWeight.Medium : FontWeight.Regular)
+        .fontWeight(this.currentIndex === index ? FontWeight.Bold : FontWeight.Regular)
     }
     .width('100%')
     .height(56)
     .justifyContent(FlexAlign.Center)
-    .padding({ top: 6, bottom: 6 })
+    .padding({ top: 4, bottom: 4 })
   }
 }

@@ -23,23 +23,25 @@ struct LoginPage {
   build() {
     Column() {
       Scroll() {
-        Column({ space: 24 }) {
+        Column({ space: 16 }) {
           // Logo区域
           Column({ space: 12 }) {
             Image($r('app.media.icon'))
-              .width(72)
-              .height(72)
+              .width(200)
+              .height(200)
               .objectFit(ImageFit.Contain)
+              .borderRadius(24)
+              .shadow({ radius: 12, color: $r('app.color.shadow'), offsetY: 4 })
             Text('掌上博物馆')
               .fontSize(26)
               .fontColor($r('app.color.text_primary'))
               .fontWeight(FontWeight.Bold)
             Text('沉浸式文物鉴赏与互动体验')
-              .fontSize(14)
+              .fontSize(13)
               .fontColor($r('app.color.text_secondary'))
           }
           .width('100%')
-          .padding({ top: 60 })
+          .padding({ top: 24 })
           .alignItems(HorizontalAlign.Center)
 
           // 登录/注册切换
@@ -67,12 +69,13 @@ struct LoginPage {
           }
 
           // 输入表单
-          Column({ space: 16 }) {
+          Column({ space: 10 }) {
             // 账号输入
             Row() {
-              Text(this.loginMode === LoginMode.PHONE ? '+86' : '✉')
-                .fontSize(16)
-                .fontColor($r('app.color.text_primary'))
+              Text(this.loginMode === LoginMode.PHONE ? '📱' : '✉️')
+                .fontSize(17)
+                .opacity(0.5)
+                .margin({ right: 4 })
               TextInput({
                 placeholder: this.loginMode === LoginMode.PHONE ? '请输入手机号' : '请输入邮箱地址',
                 text: this.account
@@ -81,18 +84,22 @@ struct LoginPage {
                 .fontSize(15)
                 .placeholderColor($r('app.color.text_hint'))
                 .backgroundColor(Color.Transparent)
+                .borderRadius(0)
                 .onChange((v) => { this.account = v; })
             }
-            .padding(12)
+            .padding({ left: 14, right: 14, top: 3, bottom: 3 })
             .backgroundColor($r('app.color.background_card'))
             .borderRadius(12)
+            .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
+            .height(50)
 
             // 昵称（注册时）
             if (this.isRegister) {
               Row() {
-                Text('名')
-                  .fontSize(16)
-                  .fontColor($r('app.color.text_primary'))
+                Text('😊')
+                  .fontSize(17)
+                  .opacity(0.5)
+                  .margin({ right: 4 })
                 TextInput({
                   placeholder: '请输入昵称',
                   text: this.nickname
@@ -101,17 +108,22 @@ struct LoginPage {
                   .fontSize(15)
                   .placeholderColor($r('app.color.text_hint'))
                   .backgroundColor(Color.Transparent)
+                  .borderRadius(0)
                   .onChange((v) => { this.nickname = v; })
               }
-              .padding(12)
+              .padding({ left: 14, right: 14, top: 3, bottom: 3 })
               .backgroundColor($r('app.color.background_card'))
               .borderRadius(12)
+              .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
+              .height(50)
             }
 
             // 密码输入
             Row() {
               Text('🔒')
-                .fontSize(16)
+                .fontSize(17)
+                .opacity(0.5)
+                .margin({ right: 4 })
               TextInput({
                 placeholder: '请输入密码',
                 text: this.password
@@ -120,18 +132,23 @@ struct LoginPage {
                 .fontSize(15)
                 .placeholderColor($r('app.color.text_hint'))
                 .backgroundColor(Color.Transparent)
+                .borderRadius(0)
                 .type(InputType.Password)
                 .onChange((v) => { this.password = v; })
             }
-            .padding(12)
+            .padding({ left: 14, right: 14, top: 3, bottom: 3 })
             .backgroundColor($r('app.color.background_card'))
             .borderRadius(12)
+            .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
+            .height(50)
 
             // 确认密码（注册时）
             if (this.isRegister) {
               Row() {
                 Text('🔒')
-                  .fontSize(16)
+                  .fontSize(17)
+                  .opacity(0.5)
+                  .margin({ right: 4 })
                 TextInput({
                   placeholder: '请再次输入密码',
                   text: this.confirmPassword
@@ -140,12 +157,15 @@ struct LoginPage {
                   .fontSize(15)
                   .placeholderColor($r('app.color.text_hint'))
                   .backgroundColor(Color.Transparent)
+                  .borderRadius(0)
                   .type(InputType.Password)
                   .onChange((v) => { this.confirmPassword = v; })
               }
-              .padding(12)
+              .padding({ left: 14, right: 14, top: 3, bottom: 3 })
               .backgroundColor($r('app.color.background_card'))
               .borderRadius(12)
+              .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
+              .height(50)
             }
           }
 
@@ -159,15 +179,24 @@ struct LoginPage {
 
           // 登录/注册按钮
           Button() {
-            Text(this.isRegister ? '注册' : '登录')
-              .fontSize(17)
-              .fontColor(Color.White)
+            Row() {
+              if (this.isLogging) {
+                LoadingProgress()
+                  .width(20).height(20)
+                  .color(Color.White)
+                  .margin({ right: 8 })
+              }
+              Text(this.isRegister ? '注册' : '登录')
+                .fontSize(17)
+                .fontColor(Color.White)
+                .fontWeight(FontWeight.Medium)
+            }
           }
           .width('100%')
-          .height(50)
-          .backgroundColor($r('app.color.primary'))
-          .borderRadius(25)
-          .opacity(this.isLogging ? 0.6 : 1.0)
+          .height(52)
+          .backgroundColor(this.isLogging ? $r('app.color.primary_light') : $r('app.color.primary'))
+          .borderRadius(26)
+          .shadow({ radius: 8, color: $r('app.color.shadow'), offsetY: 3 })
           .enabled(!this.isLogging)
           .onClick(() => {
             this.handleAuth();
@@ -175,21 +204,11 @@ struct LoginPage {
 
           // 华为登录
           if (!this.isRegister) {
-            Column({ space: 16 }) {
-              Row() {
-                Divider().width('30%').color($r('app.color.divider'))
-                Text('或')
-                  .fontSize(13)
-                  .fontColor($r('app.color.text_hint'))
-                  .margin({ left: 12, right: 12 })
-                Divider().width('30%').color($r('app.color.divider'))
-              }
-              .width('100%')
-
+            Column({ space: 12 }) {
               Button() {
                 Row({ space: 8 }) {
                   Text('🔐')
-                    .fontSize(22)
+                    .fontSize(20)
                   Text('华为账号一键登录')
                     .fontSize(15)
                     .fontColor($r('app.color.text_primary'))
@@ -201,14 +220,14 @@ struct LoginPage {
               .borderRadius(25)
               .borderWidth(1)
               .borderColor($r('app.color.divider'))
+              .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
               .onClick(async () => {
                 this.isLogging = true;
                 try {
                   const success = await this.userService.loginWithHuawei();
                   this.isLogging = false;
                   if (success) {
-                    router.clear();
-                    router.pushUrl({ url: 'pages/MainPage' });
+                    router.replaceUrl({ url: 'pages/MainPage' });
                   }
                 } catch (e) {
                   this.isLogging = false;
@@ -243,6 +262,7 @@ struct LoginPage {
         .padding({ left: 32, right: 32 })
       }
       .scrollable(ScrollDirection.Vertical)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .width('100%')
     .height('100%')
@@ -275,12 +295,8 @@ struct LoginPage {
 
     this.isLogging = false;
     if (errMsg === null) {
-      try {
-        router.clear();
-        router.pushUrl({ url: 'pages/MainPage' });
-      } catch (e) {
-        console.error('导航失败: ' + (e as Error).message);
-      }
+      // 登录成功，替换当前页面为主页
+      router.replaceUrl({ url: 'pages/MainPage' });
     } else {
       this.errorMsg = errMsg;
     }

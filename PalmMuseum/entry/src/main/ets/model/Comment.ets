@@ -14,6 +14,9 @@ export class Comment {
   reviewStatus: ReviewStatus;
   createTime: number;
   replies: ReplyComment[];
+  isExpanded: boolean;
+  showReplyInput: boolean;
+  replyText: string;
 
   constructor() {
     this.id = '';
@@ -29,6 +32,9 @@ export class Comment {
     this.reviewStatus = ReviewStatus.PENDING;
     this.createTime = Date.now();
     this.replies = [];
+    this.isExpanded = false;
+    this.showReplyInput = false;
+    this.replyText = '';
   }
 }
 

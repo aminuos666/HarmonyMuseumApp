@@ -40,13 +40,14 @@ struct CollectionPage {
       // 导航栏
       Row() {
         Button() {
-          Text('◀')
+          Text('←')
             .fontSize(20)
             .fontColor($r('app.color.text_primary'))
         }
         .width(40)
         .height(40)
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.search_bar_background'))
+        .borderRadius(20)
         .onClick(() => { router.back(); })
 
         Blank()
@@ -106,6 +107,7 @@ struct CollectionPage {
         }
         .scrollable(ScrollDirection.Vertical)
         .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
       }
     }
     .width('100%')

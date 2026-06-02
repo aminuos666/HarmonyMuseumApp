@@ -6,11 +6,18 @@ export class Constants {
   // 主题：选择瓷器作为展示主题
   static readonly THEME_TYPE: string = 'porcelain';
 
-  // API基础地址
-  // 模拟器：http://10.0.2.2:8000
-  // 真机调试：http://<电脑IP>:8000
-  // 生产环境：https://your-domain.com
-  static readonly API_BASE_URL: string = 'http://10.0.2.2:8000';
+  // =====================================================
+  // API基础地址（后端：python app/main.py → 8000 端口）
+  // 按调试场景切换，只改下面这一行即可
+  // =====================================================
+  // 模拟器调试（推荐）：模拟器通过宿主机 10.0.2.2 访问本机
+  static readonly API_BASE_URL: string = 'http://10.4.122.57:8000';
+  // 真机调试（USB/WiFi）：替换为你电脑的局域网IP，如
+  // static readonly API_BASE_URL: string = 'http://192.168.1.100:8000';
+  // 真机调试（同一网段WiFi）：ipconfig 查看本机IPv4地址后替换
+  // static readonly API_BASE_URL: string = 'http://10.0.0.5:8000';
+  // 生产环境：
+  // static readonly API_BASE_URL: string = 'https://your-domain.com/api';
 
   // 分页
   static readonly PAGE_SIZE: number = 20;

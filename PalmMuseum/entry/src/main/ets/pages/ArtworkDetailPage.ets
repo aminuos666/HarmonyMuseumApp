@@ -1,11 +1,14 @@
 import router from '@ohos.router';
 import { Artwork, ArtworkImage } from '../model/Artwork';
-import { Comment } from '../model/Comment';
+import { Comment, ReplyComment } from '../model/Comment';
 import { ArtworkService } from '../service/ArtworkService';
+import { UserService } from '../service/UserService';
 import { SpeechService } from '../service/SpeechService';
 import { ImageViewer } from '../component/ImageViewer';
 import { AudioPlayer } from '../component/AudioPlayer';
 import { EmptyView } from '../component/ArtworkCard';
+import { promptAction } from '@kit.ArkUI';
+import { pasteboard } from '@kit.BasicServicesKit';
 
 class SectionTabItem {
   label: string = '';
@@ -22,19 +25,21 @@ class SectionTabItem {
 struct ArtworkDetailPage {
   @State private artwork: Artwork = new Artwork();
   @State private selectedSection: SectionTab = SectionTab.INFO;
-  @State private isLiked: boolean = false;
-  @State private isFavorited: boolean = false;
-  @State private likeCount: number = 0;
-  @State private favoriteCount: number = 0;
+  @StorageLink('artwork_isLiked') isLiked: boolean = false;
+  @StorageLink('artwork_isFavorited') isFavorited: boolean = false;
+  @StorageLink('artwork_likeCount') likeCount: number = 0;
+  @StorageLink('artwork_favoriteCount') favoriteCount: number = 0;
   @State private comments: Comment[] = [];
   @State private isPlayingAudio: boolean = false;
-  @State private showCommentInput: boolean = false;
-  @State private commentText: string = '';
+  @StorageLink('artwork_showCommentInput') showCommentInput: boolean = false;
+  @StorageLink('artwork_commentText') commentText: string = '';
+  @StorageLink('artwork_commentsRefresh') private commentsRefresh: number = 0;
   @State private showFullImage: boolean = false;
   @State private currentImageIndex: number = 0;
 
   private artworkId: string = '';
   private artworkService = ArtworkService.getInstance();
+  private userService = UserService.getInstance();
   private speechService = SpeechService.getInstance();
 
   aboutToAppear(): void {
@@ -68,7 +73,8 @@ struct ArtworkDetailPage {
     this.isFavorited = artwork.isFavorited;
     this.likeCount = artwork.likeCount;
     this.favoriteCount = artwork.favoriteCount;
-    // 记录浏览历史（略，由后端处理）
+    // 记录浏览历史
+    this.userService.addBrowseHistory(this.artworkId);
   }
 
   build() {
@@ -87,8 +93,84 @@ struct ArtworkDetailPage {
             // 基本信息
             this.buildBasicInfo()
 
-            // 交互按钮
-            this.buildActionButtons()
+            // 交互按钮 — @StorageLink 变量通过 AppStorage 广播，闭包内修改也能触发重渲染
+            Row({ space: 0 }) {
+              // 点赞
+              Column({ space: 4 }) {
+                Button() {
+                  Text(this.isLiked ? '❤️' : '🤍')
+                    .fontSize(24)
+                }
+                .width(48)
+                .height(48)
+                .backgroundColor(Color.Transparent)
+                .onClick(() => { this.handleLike(); })
+
+                Text(`${this.likeCount}`)
+                  .fontSize(12)
+                  .fontColor(this.isLiked ? $r('app.color.like_active') : $r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Center)
+
+              // 收藏
+              Column({ space: 4 }) {
+                Button() {
+                  Text(this.isFavorited ? '⭐' : '☆')
+                    .fontSize(24)
+                }
+                .width(48)
+                .height(48)
+                .backgroundColor(Color.Transparent)
+                .onClick(() => { this.handleFavorite(); })
+
+                Text(`${this.favoriteCount}`)
+                  .fontSize(12)
+                  .fontColor(this.isFavorited ? $r('app.color.favorite_active') : $r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Center)
+
+              // 评论
+              Column({ space: 4 }) {
+                Button() {
+                  Text('💬')
+                    .fontSize(24)
+                }
+                .width(48)
+                .height(48)
+                .backgroundColor(Color.Transparent)
+                .onClick(() => {
+                  this.showCommentInput = !this.showCommentInput;
+                })
+
+                Text(`${this.comments.length}`)
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Center)
+
+              // 分享
+              Column({ space: 4 }) {
+                Button() {
+                  Text('📤')
+                    .fontSize(24)
+                }
+                .width(48)
+                .height(48)
+                .backgroundColor(Color.Transparent)
+                .onClick(() => { this.handleShare(); })
+
+                Text('分享')
+                  .fontSize(12)
+                  .fontColor($r('app.color.text_secondary'))
+              }
+              .alignItems(HorizontalAlign.Center)
+            }
+            .width('100%')
+            .padding({ left: 28, right: 28, top: 14, bottom: 16 })
+            .justifyContent(FlexAlign.SpaceAround)
+            .backgroundColor($r('app.color.background_card'))
+            .borderRadius({ topLeft: 16, topRight: 16 })
+            .shadow({ radius: 8, color: $r('app.color.shadow'), offsetY: -2 })
 
             // 分类标签
             this.buildSectionTabs()
@@ -105,6 +187,7 @@ struct ArtworkDetailPage {
         }
         .scrollable(ScrollDirection.Vertical)
         .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
       }
     }
     .width('100%')
@@ -118,32 +201,32 @@ struct ArtworkDetailPage {
       // 主图
       Image(this.artwork?.coverImage || '')
         .width('100%')
-        .height(360)
+        .height(380)
         .objectFit(ImageFit.Cover)
         .onClick(() => {
           this.showFullImage = true;
         })
 
-      // 渐变遮罩
+      // 渐变遮罩 — 更深色带来厚重感
       Column()
         .width('100%')
-        .height(120)
+        .height(160)
         .linearGradient({
           direction: GradientDirection.Bottom,
-          colors: [['#00000000', 0], ['#99000000', 1]]
+          colors: [['#00000000', 0], ['#CC000000', 1]]
         })
         .position({ bottom: 0 })
 
-      // 返回按钮
+      // 返回按钮 — 半透明毛玻璃效果
       Button() {
-        Text('◀')
-          .fontSize(20)
-          .fontColor($r('app.color.text_primary'))
+        Text('←')
+          .fontSize(18)
+          .fontColor(Color.White)
       }
-      .width(40)
-      .height(40)
-      .backgroundColor(Color.White)
-      .borderRadius(20)
+      .width(36)
+      .height(36)
+      .backgroundColor('#40FFFFFF')
+      .borderRadius(18)
       .position({ top: 40, left: 16 })
       .onClick(() => {
         router.back();
@@ -159,13 +242,13 @@ struct ArtworkDetailPage {
               .fill(idx === 0 ? Color.White : '#66FFFFFF')
           })
         }
-        .position({ bottom: 16 })
+        .position({ bottom: 20 })
         .width('100%')
         .justifyContent(FlexAlign.Center)
       }
     }
     .width('100%')
-    .height(360)
+    .height(380)
   }
 
   @Builder
@@ -206,7 +289,7 @@ struct ArtworkDetailPage {
         .margin({ top: 4 })
 
       // 基本信息列表
-      Column({ space: 6 }) {
+      Column({ space: 8 }) {
         this.buildInfoRow('年代', this.artwork?.yearRange || '')
         this.buildInfoRow('尺寸', this.artwork?.dimensions || '')
         this.buildInfoRow('重量', this.artwork?.weight || '')
@@ -214,10 +297,11 @@ struct ArtworkDetailPage {
         this.buildInfoRow('收藏地', this.artwork?.collectionPlace || '')
       }
       .width('100%')
-      .padding(12)
+      .padding(14)
       .backgroundColor($r('app.color.background_card'))
-      .borderRadius(8)
-      .margin({ top: 8 })
+      .borderRadius(10)
+      .shadow({ radius: 6, color: $r('app.color.shadow'), offsetY: 2 })
+      .margin({ top: 10 })
     }
     .padding({ left: 16, right: 16, top: 16 })
     .width('100%')
@@ -241,82 +325,6 @@ struct ArtworkDetailPage {
   }
 
   @Builder
-  buildActionButtons(): void {
-    Row({ space: 0 }) {
-      // 点赞
-      this.buildActionButton(
-        this.isLiked ? '❤️' : '🤍',
-        this.isLiked ? $r('app.color.like_active') : $r('app.color.text_secondary'),
-        `${this.likeCount}`,
-        () => {
-          // 乐观更新 UI
-          const newLiked = !this.isLiked;
-          this.isLiked = newLiked;
-          this.likeCount += newLiked ? 1 : -1;
-          // 异步调用后端 API
-          this.artworkService.toggleLike(this.artworkId);
-        }
-      )
-
-      // 收藏
-      this.buildActionButton(
-        this.isFavorited ? '⭐' : '☆',
-        this.isFavorited ? $r('app.color.favorite_active') : $r('app.color.text_secondary'),
-        `${this.favoriteCount}`,
-        () => {
-          // 乐观更新 UI
-          const newFav = !this.isFavorited;
-          this.isFavorited = newFav;
-          this.favoriteCount += newFav ? 1 : -1;
-          // 异步调用后端 API
-          this.artworkService.toggleFavorite(this.artworkId);
-        }
-      )
-
-      // 评论
-      this.buildActionButton(
-        '💬',
-        $r('app.color.text_secondary'),
-        `${this.comments.length}`,
-        () => {
-          this.showCommentInput = !this.showCommentInput;
-        }
-      )
-
-      // 分享
-      this.buildActionButton(
-        '📤',
-        $r('app.color.text_secondary'),
-        '分享',
-        () => {}
-      )
-    }
-    .width('100%')
-    .padding({ left: 32, right: 32, top: 12, bottom: 12 })
-    .justifyContent(FlexAlign.SpaceAround)
-  }
-
-  @Builder
-  buildActionButton(icon: string, color: ResourceColor, label: string,
-    onClick: () => void): void {
-    Column({ space: 4 }) {
-      Button() {
-        Text(icon)
-          .fontSize(22)
-      }
-      .width(44)
-      .height(44)
-      .backgroundColor(Color.Transparent)
-      .onClick(() => { onClick(); })
-
-      Text(label)
-        .fontSize(11)
-        .fontColor(color)
-    }
-    .alignItems(HorizontalAlign.Center)
-  }
-
-  @Builder
   buildSectionTabs(): void {
     Row({ space: 0 }) {
       ForEach([
@@ -327,20 +335,20 @@ struct ArtworkDetailPage {
       ], (tab: SectionTabItem) => {
         Column() {
           Text(tab.label)
-            .fontSize(14)
+            .fontSize(15)
             .fontColor(this.selectedSection === tab.value ?
               $r('app.color.primary') : $r('app.color.text_secondary'))
             .fontWeight(this.selectedSection === tab.value ?
-              FontWeight.Medium : FontWeight.Regular)
-            .padding({ bottom: 8 })
+              FontWeight.Bold : FontWeight.Regular)
+            .padding({ bottom: 10 })
             .onClick(() => {
               this.selectedSection = tab.value;
             })
           if (this.selectedSection === tab.value) {
             Divider()
-              .width('60%')
+              .width('50%')
               .color($r('app.color.primary'))
-              .strokeWidth(2)
+              .strokeWidth(2.5)
           }
         }
         .layoutWeight(1)
@@ -349,7 +357,8 @@ struct ArtworkDetailPage {
     }
     .width('100%')
     .padding({ left: 16, right: 16, top: 12 })
-    .borderWidth({ bottom: 1 })
+    .backgroundColor($r('app.color.background_card'))
+    .borderWidth({ bottom: 0.5 })
     .borderColor({ bottom: $r('app.color.divider') })
   }
 
@@ -497,6 +506,7 @@ struct ArtworkDetailPage {
       Row() {
         Text(`评论区 (${this.comments.length})`)
           .fontSize(16)
+          .id(`comments-${this.commentsRefresh}`)
           .fontColor($r('app.color.text_primary'))
           .fontWeight(FontWeight.Medium)
         Blank()
@@ -521,6 +531,7 @@ struct ArtworkDetailPage {
             .height(36)
             .fontSize(14)
             .onChange((v) => { this.commentText = v; })
+            .onSubmit(() => { this.sendComment(); })
           Button() {
             Text('📤 发送')
               .fontSize(14)
@@ -529,66 +540,233 @@ struct ArtworkDetailPage {
             .height(36)
             .backgroundColor($r('app.color.primary'))
             .borderRadius(18)
-            .onClick(() => {
-              if (this.commentText.length > 0) {
-                this.commentText = '';
-                this.showCommentInput = false;
-              }
-            })
+            .onClick(() => { this.sendComment(); })
         }
         .padding({ left: 16, right: 16 })
       }
 
-      // 评论列表（前3条）
-      ForEach(this.comments.slice(0, 3), (comment: Comment) => {
+      // 评论列表（前3条）— keyGenerator 包含状态属性，确保 ForEach 在状态变化时重新渲染
+      ForEach(this.comments.slice(0, 3),
+        (comment: Comment) => {
         Column() {
           Row({ space: 10 }) {
             Image(comment.userAvatar)
-              .width(36)
-              .height(36)
-              .objectFit(ImageFit.Cover)
-              .borderRadius(18)
+              .width(36).height(36).objectFit(ImageFit.Cover).borderRadius(18)
 
             Column({ space: 4 }) {
               Row() {
                 Text(comment.username)
-                  .fontSize(13)
-                  .fontColor($r('app.color.text_primary'))
-                  .fontWeight(FontWeight.Medium)
+                  .fontSize(13).fontColor($r('app.color.text_primary')).fontWeight(FontWeight.Medium)
                 Blank()
                 Text(this.formatTime(comment.createTime))
-                  .fontSize(11)
-                  .fontColor($r('app.color.text_hint'))
+                  .fontSize(11).fontColor($r('app.color.text_hint'))
               }
               .width('100%')
 
               Text(comment.content)
-                .fontSize(14)
-                .fontColor($r('app.color.text_secondary'))
-                .lineHeight(20)
-                .width('100%')
+                .fontSize(14).fontColor($r('app.color.text_secondary')).lineHeight(20).width('100%')
             }
             .layoutWeight(1)
           }
           .width('100%')
 
-          // 评论操作
+          // 操作按钮
           Row() {
-            Text(`❤ ${comment.likeCount}`)
-              .fontSize(12)
-              .fontColor($r('app.color.text_hint'))
+            Button() {
+              Text(comment.isLiked ? '❤️' : '🤍').fontSize(13)
+            }
+            .width(36).height(28).backgroundColor(Color.Transparent)
+            .onClick(() => { this.handleCommentLike(comment); })
+
+            Text(`${comment.likeCount}`)
+              .fontSize(11)
+              .fontColor(comment.isLiked ? $r('app.color.like_active') : $r('app.color.text_hint'))
+
             Text('💬 回复')
-              .fontSize(12)
-              .fontColor($r('app.color.text_hint'))
-              .margin({ left: 16 })
+              .fontSize(12).fontColor($r('app.color.text_hint')).margin({ left: 16 })
+              .onClick(() => {
+                comment.showReplyInput = !comment.showReplyInput;
+                if (!comment.showReplyInput) comment.replyText = '';
+                this.commentsRefresh++;
+              })
           }
-          .padding({ left: 46 })
+          .padding({ left: 46, top: 4 })
+
+          // 回复输入框
+          if (comment.showReplyInput) {
+            Row({ space: 6 }) {
+              TextInput({ placeholder: `回复 ${comment.username}...`, text: comment.replyText })
+                .layoutWeight(1).height(32).fontSize(13)
+                .onChange((v) => { comment.replyText = v; })
+                .onSubmit(() => { this.sendCommentReply(comment); })
+              Button() {
+                Text('发送').fontSize(12).fontColor(Color.White)
+              }
+                .height(32).backgroundColor($r('app.color.primary')).borderRadius(16)
+                .onClick(() => { this.sendCommentReply(comment); })
+            }
+            .padding({ left: 46, top: 4 })
+          }
+
+          // 回复列表
+          if (comment.replies && comment.replies.length > 0) {
+            ForEach(
+              comment.isExpanded ? comment.replies : comment.replies.slice(0, 2),
+              (reply: ReplyComment): void => {
+              Column({ space: 6 }) {
+                Row({ space: 8 }) {
+                  Image(reply.userAvatar)
+                    .width(28).height(28).objectFit(ImageFit.Cover).borderRadius(14)
+
+                  Column({ space: 2 }) {
+                    Row() {
+                      Text(reply.username).fontSize(12)
+                        .fontColor($r('app.color.text_primary')).fontWeight(FontWeight.Medium)
+                      Blank()
+                      Text(this.formatTime(reply.createTime)).fontSize(10)
+                        .fontColor($r('app.color.text_hint'))
+                    }
+                    .width('100%')
+
+                    Text(reply.content).fontSize(13)
+                      .fontColor($r('app.color.text_secondary')).lineHeight(18).width('100%')
+                  }
+                  .layoutWeight(1)
+                }
+                .width('100%')
+
+                Row() {
+                  Text(reply.isLiked ? '❤️' : '🤍').fontSize(11)
+                  Text(`${reply.likeCount}`).fontSize(10).fontColor($r('app.color.text_hint'))
+                }
+                .padding({ left: 36 })
+              }
+              .padding({ top: 6 })
+            },
+            (reply: ReplyComment): string => reply.id + '_' + reply.isLiked
+          )
+
+            // 展开/折叠
+            if (comment.replies.length > 2) {
+              Text(comment.isExpanded
+                ? '△ 收起回复'
+                : `▽ 展开全部 ${comment.replies.length} 条回复`)
+                .fontSize(12).fontColor($r('app.color.primary')).padding({ left: 36, top: 4 })
+                .onClick(() => {
+                  comment.isExpanded = !comment.isExpanded;
+                  this.commentsRefresh++;
+                })
+            }
+          }
         }
+        .width('100%')
         .padding({ left: 16, right: 16, top: 8, bottom: 8 })
-      })
+      },
+      (comment: Comment): string => comment.id + '_' + comment.isLiked + '_' + comment.likeCount + '_' + comment.showReplyInput + '_' + comment.isExpanded
+    )
     }
     .width('100%')
     .margin({ top: 16 })
+  }
+
+  private handleCommentLike(comment: Comment): void {
+    const newLiked = !comment.isLiked;
+    comment.isLiked = newLiked;
+    comment.likeCount += newLiked ? 1 : -1;
+    this.commentsRefresh++;
+    this.artworkService.toggleCommentLike(comment.id);
+  }
+
+  private sendCommentReply(comment: Comment): void {
+    const text = comment.replyText.trim();
+    if (text.length === 0) {
+      return;
+    }
+    // 先关闭输入框
+    comment.replyText = '';
+    comment.showReplyInput = false;
+    this.commentsRefresh++;
+
+    // 异步发送回复
+    this.artworkService.addComment(this.artworkId, text, comment.id).then((newComment) => {
+      if (newComment) {
+        const reply = new ReplyComment();
+        reply.id = newComment.id;
+        reply.commentId = comment.id;
+        reply.userId = newComment.userId;
+        reply.username = newComment.username;
+        reply.userAvatar = newComment.userAvatar;
+        reply.content = newComment.content;
+        reply.likeCount = 0;
+        reply.isLiked = false;
+        reply.reviewStatus = newComment.reviewStatus;
+        reply.createTime = newComment.createTime;
+        comment.replies.push(reply);
+        comment.replyCount = comment.replies.length;
+        comment.isExpanded = true;
+        this.commentsRefresh++;
+        promptAction.showToast({ message: '回复成功', duration: 1500 });
+      } else {
+        promptAction.showToast({ message: '回复失败，请重试', duration: 1500 });
+      }
+    });
+  }
+
+  private handleLike(): void {
+    console.info(`handleLike called, was: ${this.isLiked}, count: ${this.likeCount}`);
+    const newLiked = !this.isLiked;
+    this.isLiked = newLiked;
+    this.likeCount += newLiked ? 1 : -1;
+    console.info(`handleLike now: ${this.isLiked}, count: ${this.likeCount}`);
+    // fire-and-forget: API 请求在状态更新后异步执行
+    this.artworkService.toggleLike(this.artworkId);
+  }
+
+  private handleFavorite(): void {
+    console.info(`handleFavorite called, was: ${this.isFavorited}, count: ${this.favoriteCount}`);
+    const newFav = !this.isFavorited;
+    this.isFavorited = newFav;
+    this.favoriteCount += newFav ? 1 : -1;
+    console.info(`handleFavorite now: ${this.isFavorited}, count: ${this.favoriteCount}`);
+    this.artworkService.toggleFavorite(this.artworkId);
+  }
+
+  private handleShare(): void {
+    const name = this.artwork?.name || '文物';
+    const dynasty = this.artwork?.dynasty || '';
+    const desc = this.artwork?.description || '';
+    const shareText = `📌 ${name}\n${dynasty ? `年代：${dynasty}\n` : ''}${desc ? `简介：${desc}\n` : ''}——来自「掌上博物馆」`;
+    try {
+      const pasteData = pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, shareText);
+      const systemPasteboard = pasteboard.getSystemPasteboard();
+      systemPasteboard.setData(pasteData).then(() => {
+        promptAction.showToast({ message: '已复制文物信息到剪贴板，可粘贴分享', duration: 2000 });
+      }).catch(() => {
+        promptAction.showToast({ message: '分享失败', duration: 1500 });
+      });
+    } catch (e) {
+      console.error(`分享失败: ${(e as Error).message}`);
+      promptAction.showToast({ message: '分享失败', duration: 1500 });
+    }
+  }
+
+  private sendComment(): void {
+    const text = this.commentText.trim();
+    if (text.length === 0) {
+      return;
+    }
+    // 异步发送评论
+    this.artworkService.addComment(this.artworkId, text).then((newComment) => {
+      if (newComment) {
+        this.comments.unshift(newComment);
+        this.commentsRefresh++;
+        promptAction.showToast({ message: '评论发表成功', duration: 1500 });
+      } else {
+        promptAction.showToast({ message: '评论发表失败，请重试', duration: 1500 });
+      }
+    });
+    this.commentText = '';
+    this.showCommentInput = false;
   }
 
   private formatTime(timestamp: number): string {
@@ -606,3 +784,4 @@ enum SectionTab {
   CULTURE = 'culture',
   AUDIO = 'audio'
 }
+

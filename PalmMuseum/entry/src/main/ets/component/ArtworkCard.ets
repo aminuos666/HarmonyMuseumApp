@@ -82,11 +82,11 @@ export struct ArtworkCard {
           .width('100%')
 
         // 统计信息
-        Row({ space: 16 }) {
+        Row({ space: 12 }) {
           Row({ space: 4 }) {
             Text('🔥')
               .fontSize(12)
-            Text(`${this.artwork.popularity}`)
+            Text(`${this.artwork.likeCount + this.artwork.favoriteCount + this.artwork.commentCount}`)
               .fontSize(11)
               .fontColor($r('app.color.text_hint'))
           }
@@ -118,10 +118,10 @@ export struct ArtworkCard {
     .backgroundColor($r('app.color.background_card'))
     .borderRadius(12)
     .shadow({
-      radius: 6,
+      radius: 8,
       color: $r('app.color.shadow'),
       offsetX: 0,
-      offsetY: 2
+      offsetY: 3
     })
     .onClick(() => {
       if (this.onTap) {

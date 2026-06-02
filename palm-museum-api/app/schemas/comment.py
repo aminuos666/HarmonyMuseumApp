@@ -18,6 +18,9 @@ class CommentOut(BaseModel):
     content: str
     parent_id: Optional[int] = None
     created_at: Optional[datetime] = None
+    like_count: int = 0
+    is_liked: bool = False
+    replies: list["CommentOut"] = []
 
     class Config:
         from_attributes = True

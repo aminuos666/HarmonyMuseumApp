@@ -1,6 +1,10 @@
 import router from '@ohos.router';
 import { UserService } from '../service/UserService';
 import { PrivacyLevel } from '../model/User';
+import { photoAccessHelper } from '@kit.MediaLibraryKit';
+import { common } from '@kit.AbilityKit';
+import { promptAction } from '@kit.ArkUI';
+import { fileIo } from '@kit.CoreFileKit';
 
 class PrivacyItem {
   label: string = '';
@@ -33,13 +37,14 @@ struct SettingsPage {
       // 导航
       Row() {
         Button() {
-          Text('◀')
+          Text('←')
             .fontSize(20)
             .fontColor($r('app.color.text_primary'))
         }
         .width(40)
         .height(40)
-        .backgroundColor(Color.Transparent)
+        .backgroundColor($r('app.color.search_bar_background'))
+        .borderRadius(20)
         .onClick(() => { router.back(); })
 
         Blank()
@@ -61,6 +66,61 @@ struct SettingsPage {
 
       Scroll() {
         Column({ space: 24 }) {
+          // 头像设置
+          Column({ space: 8 }) {
+            this.buildSectionHeader('头像')
+            Column({ space: 0 }) {
+              Row() {
+                Stack() {
+                  Image(this.userService.getCurrentUser()?.avatar || '')
+                    .width(72).height(72)
+                    .objectFit(ImageFit.Cover).borderRadius(36)
+                    .backgroundColor($r('app.color.shimmer_base'))
+                    .border({ width: 2, color: $r('app.color.primary') })
+
+                  Text('📷').fontSize(16).opacity(0.8)
+                    .position({ bottom: 0, right: 0 })
+                }
+
+                Column({ space: 4 }) {
+                  Text('点击更换头像')
+                    .fontSize(14).fontColor($r('app.color.text_primary'))
+                  Text('支持 JPG / PNG 格式')
+                    .fontSize(11).fontColor($r('app.color.text_hint'))
+                }
+                .margin({ left: 16 })
+                .alignItems(HorizontalAlign.Start)
+              }
+              .padding({ left: 16, right: 16, top: 12, bottom: 12 })
+              .width('100%')
+              .onClick(async () => {
+                try {
+                  const options = new photoAccessHelper.PhotoSelectOptions();
+                  options.MIMEType = photoAccessHelper.PhotoViewMIMETypes.IMAGE_TYPE;
+                  options.maxSelectNumber = 1;
+                  const picker = new photoAccessHelper.PhotoViewPicker();
+                  const result = await picker.select(options);
+                  if (result?.photoUris?.[0]) {
+                    const ctx = getContext(this) as common.UIAbilityContext;
+                    const cachePath = `${ctx.cacheDir}/avatar_${Date.now()}.jpg`;
+                    try {
+                      const srcFile = fileIo.openSync(result.photoUris[0], fileIo.OpenMode.READ_ONLY);
+                      fileIo.copyFileSync(srcFile.fd, cachePath);
+                      fileIo.closeSync(srcFile);
+                    } catch (_) {}
+                    await this.userService.updateAvatar(cachePath);
+                    promptAction.showToast({ message: '头像更新成功', duration: 1500 });
+                  }
+                } catch (e) {
+                  promptAction.showToast({ message: '头像更新失败', duration: 1500 });
+                }
+              })
+            }
+            .backgroundColor($r('app.color.background_card'))
+            .borderRadius(12)
+            .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
+          }
+
           // 个人信息
           Column({ space: 8 }) {
             this.buildSectionHeader('个人信息')
@@ -71,6 +131,7 @@ struct SettingsPage {
             }
             .backgroundColor($r('app.color.background_card'))
             .borderRadius(12)
+            .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
           }
 
           // 隐私设置
@@ -103,6 +164,7 @@ struct SettingsPage {
             }
             .backgroundColor($r('app.color.background_card'))
             .borderRadius(12)
+            .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
           }
 
           // 通知设置
@@ -119,6 +181,7 @@ struct SettingsPage {
             }
             .backgroundColor($r('app.color.background_card'))
             .borderRadius(12)
+            .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
           }
 
           // 关于
@@ -133,6 +196,7 @@ struct SettingsPage {
             }
             .backgroundColor($r('app.color.background_card'))
             .borderRadius(12)
+            .shadow({ radius: 4, color: $r('app.color.shadow'), offsetY: 1 })
           }
 
           // 退出登录
@@ -156,6 +220,7 @@ struct SettingsPage {
       }
       .scrollable(ScrollDirection.Vertical)
       .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
     }
     .width('100%')
     .height('100%')

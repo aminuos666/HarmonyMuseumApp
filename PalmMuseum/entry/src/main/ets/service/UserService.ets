@@ -166,6 +166,9 @@ export class UserService {
     const http = HttpClient.getInstance();
     http.setToken(response.access_token);
 
+    // 持久化 Token，App 重启后可恢复登录状态
+    AppStorage.Set<string>('access_token', response.access_token);
+
     // 存储用户信息
     this.currentUser = mapUser(response.user);
 
@@ -192,6 +195,7 @@ export class UserService {
     } catch (e) {
       console.error('恢复登录状态失败');
       http.clearToken();
+      AppStorage.Set<string>('access_token', '');
       this.currentUser = null;
       return false;
     }
@@ -201,6 +205,7 @@ export class UserService {
   logout(): void {
     const http = HttpClient.getInstance();
     http.clearToken();
+    AppStorage.Set<string>('access_token', '');
     this.currentUser = null;
     this.likedIds.clear();
     this.collectedIds.clear();
@@ -238,6 +243,25 @@ export class UserService {
       return true;
     } catch (e) {
       console.error(`更新资料失败: ${(e as Error).message}`);
+      return false;
+    }
+  }
+
+  /** 更新头像（异步） */
+  async updateAvatar(avatarUri: string): Promise<boolean> {
+    const http = HttpClient.getInstance();
+    try {
+      const body: Record<string, Object> = {};
+      body['avatar'] = avatarUri;
+      const response = await http.put<ApiUserOut>('/api/users/profile', body);
+      if (this.currentUser) {
+        this.currentUser.avatar = response.avatar || this.currentUser.avatar;
+      }
+      // 通知各页面刷新
+      try { AppStorage.SetOrCreate<number>('userDataRefresh', Date.now()); } catch (_) {}
+      return true;
+    } catch (e) {
+      console.error(`更新头像失败: ${(e as Error).message}`);
       return false;
     }
   }

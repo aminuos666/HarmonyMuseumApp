@@ -18,6 +18,7 @@ import { MockArtworks } from '../data/MockArtworks';
 import { MockComments } from '../data/MockComments';
 import { SortType, Dynasty, Constants, ReviewStatus } from '../utils/Constants';
 import { HttpClient } from './HttpClient';
+import { UserService } from './UserService';
 
 // ──────── API 响应类型定义 ────────
 
@@ -87,57 +88,19 @@ interface ApiCommentOut {
   artwork_id: string;
   user_id: string;
   username: string;
-  user_avatar: string;
+  avatar: string;
   content: string;
-  like_count: number;
-  reply_count: number;
-  is_liked: boolean;
   parent_id: string;
-  review_status: string;
-  create_time: string;
-  replies: ApiReplyOut[];
-}
-
-interface ApiReplyOut {
-  id: string;
-  comment_id: string;
-  user_id: string;
-  username: string;
-  user_avatar: string;
-  content: string;
-  reply_to_user_id: string;
-  reply_to_username: string;
+  created_at: string;
   like_count: number;
   is_liked: boolean;
-  review_status: string;
-  create_time: string;
-}
-
-interface ApiCommentListResponse {
-  comments: ApiCommentOut[];
-  total: number;
-}
-
-interface ApiCommentCreateResponse {
-  comment: ApiCommentOut;
+  replies: ApiCommentOut[];
 }
 
 // ──────── 点赞/收藏同步 API 响应类型 ────────
 
-interface ApiSyncLikeItem {
-  artwork_id: string;
-}
-
-interface ApiSyncLikesResponse {
-  likes: ApiSyncLikeItem[];
-}
-
-interface ApiSyncCollectionItem {
-  artwork_id: string;
-}
-
-interface ApiSyncCollectionsResponse {
-  collections: ApiSyncCollectionItem[];
+interface ApiSyncIdsResponse {
+  artwork_ids: string[];
 }
 
 // ──────── 工具类型 ────────
@@ -152,6 +115,11 @@ class FavoriteResult {
   favoriteCount: number = 0;
 }
 
+class CommentLikeResult {
+  isLiked: boolean = false;
+  likeCount: number = 0;
+}
+
 // ──────── 字段映射函数 ────────
 
 function mapArtworkImage(img: ApiArtworkImage): ArtworkImage {
@@ -164,6 +132,11 @@ function mapArtworkImage(img: ApiArtworkImage): ArtworkImage {
   ai.width = img.width || 0;
   ai.height = img.height || 0;
   return ai;
+}
+
+interface ApiCommentLikeResponse {
+  is_liked: boolean;
+  like_count: number;
 }
 
 function mapAudioGuide(ag: ApiAudioGuide): AudioGuide {
@@ -216,42 +189,40 @@ function mapArtwork(api: ApiArtworkOut, isLiked?: boolean, isFavorited?: boolean
 
 function mapComment(c: ApiCommentOut): Comment {
   const comment = new Comment();
-  comment.id = c.id;
+  comment.id = String(c.id);
   comment.artworkId = c.artwork_id;
-  comment.userId = c.user_id;
+  comment.userId = String(c.user_id);
   comment.username = c.username;
-  comment.userAvatar = c.user_avatar || '';
+  comment.userAvatar = c.avatar || '';
   comment.content = c.content;
   comment.likeCount = c.like_count || 0;
-  comment.replyCount = c.reply_count || 0;
+  comment.replyCount = c.replies ? c.replies.length : 0;
   comment.isLiked = c.is_liked || false;
-  comment.parentId = c.parent_id || '';
-  comment.reviewStatus = c.review_status as ReviewStatus;
-  if (c.create_time) {
-    const ts = Date.parse(c.create_time);
+  comment.parentId = c.parent_id ? String(c.parent_id) : '';
+  comment.reviewStatus = ReviewStatus.APPROVED;
+  if (c.created_at) {
+    const ts = Date.parse(c.created_at);
     comment.createTime = isNaN(ts) ? Date.now() : ts;
   }
-  if (c.replies) {
-    comment.replies = c.replies.map(r => {
-      const reply = new ReplyComment();
-      reply.id = r.id;
-      reply.commentId = r.comment_id;
-      reply.userId = r.user_id;
-      reply.username = r.username;
-      reply.userAvatar = r.user_avatar || '';
-      reply.content = r.content;
-      reply.replyToUserId = r.reply_to_user_id || '';
-      reply.replyToUsername = r.reply_to_username || '';
-      reply.likeCount = r.like_count || 0;
-      reply.isLiked = r.is_liked || false;
-      reply.reviewStatus = r.review_status as ReviewStatus;
-      if (r.create_time) {
-        const ts = Date.parse(r.create_time);
-        reply.createTime = isNaN(ts) ? Date.now() : ts;
-      }
-      return reply;
-    });
-  }
+  comment.replies = (c.replies || []).map(r => {
+    const reply = new ReplyComment();
+    reply.id = String(r.id);
+    reply.commentId = String(c.id);
+    reply.userId = String(r.user_id);
+    reply.username = r.username;
+    reply.userAvatar = r.avatar || '';
+    reply.content = r.content;
+    reply.replyToUserId = String(r.user_id);
+    reply.replyToUsername = r.username;
+    reply.likeCount = r.like_count || 0;
+    reply.isLiked = r.is_liked || false;
+    reply.reviewStatus = ReviewStatus.APPROVED;
+    if (r.created_at) {
+      const ts = Date.parse(r.created_at);
+      reply.createTime = isNaN(ts) ? Date.now() : ts;
+    }
+    return reply;
+  });
   return comment;
 }
 
@@ -297,15 +268,16 @@ export class ArtworkService {
 
   // ════════════ 数据加载（异步 API 调用） ════════════
 
-  /** 从后端加载文物列表 */
+  /** 从后端加载文物列表（分页） */
   async fetchArtworks(
     sortType: SortType = SortType.DEFAULT,
     page: number = 1,
     dynasty?: string,
+    pageSize: number = Constants.PAGE_SIZE,
   ): Promise<Artwork[]> {
     const params: Record<string, string> = {} as Record<string, string>;
     params['page'] = page.toString();
-    params['page_size'] = Constants.PAGE_SIZE.toString();
+    params['page_size'] = pageSize.toString();
     if (sortType !== SortType.DEFAULT) {
       params['sort'] = sortType;
     }
@@ -327,8 +299,20 @@ export class ArtworkService {
       return this.allArtworks;
     } catch (e) {
       console.error(`获取文物列表失败: ${(e as Error).message}`);
-      return [];
+      // 后端不可用时加载 Mock 数据
+      if (!this.cacheLoaded) {
+        this.allArtworks = MockArtworks.getArtworks();
+        this.totalCount = this.allArtworks.length;
+        this.cacheLoaded = true;
+      }
+      return this.allArtworks;
     }
+  }
+
+  /** 从后端加载全量文物（用于首页无分页展示） */
+  async fetchAllArtworks(sortType: SortType = SortType.DEFAULT): Promise<Artwork[]> {
+    // page_size 最大 100（后端限制），大于文物总数即可取全
+    return this.fetchArtworks(sortType, 1, undefined, 100);
   }
 
   /** 从后端加载单件文物详情 */
@@ -439,13 +423,13 @@ export class ArtworkService {
     }
 
     try {
-      // 获取点赞列表
-      const likesResponse = await http.get<ApiSyncLikesResponse>('/api/likes');
-      this.likedIds = new Set(likesResponse.likes.map(l => l.artwork_id));
+      // 获取点赞列表（后端返回 {artwork_ids: [...]}）
+      const likesResponse = await http.get<ApiSyncIdsResponse>('/api/likes');
+      this.likedIds = new Set(likesResponse.artwork_ids || []);
 
-      // 获取收藏列表
-      const collResponse = await http.get<ApiSyncCollectionsResponse>('/api/collections');
-      this.collectedIds = new Set(collResponse.collections.map(c => c.artwork_id));
+      // 获取收藏列表（后端返回 {artwork_ids: [...]}）
+      const collResponse = await http.get<ApiSyncIdsResponse>('/api/collections');
+      this.collectedIds = new Set(collResponse.artwork_ids || []);
 
       // 更新缓存中的标志
       for (const artwork of this.allArtworks) {
@@ -460,7 +444,7 @@ export class ArtworkService {
 
   // ════════════ 同步访问（从本地缓存返回） ════════════
 
-  /** 获取文物列表（同步，从缓存返回） */
+  /** 获取文物列表（同步，从缓存返回，分页） */
   getArtworks(sortType: SortType = SortType.DEFAULT, page: number = 1): Artwork[] {
     if (!this.cacheLoaded) {
       return [];
@@ -468,7 +452,10 @@ export class ArtworkService {
     let sorted = [...this.allArtworks];
     switch (sortType) {
       case SortType.POPULAR:
-        sorted.sort((a, b) => b.popularity - a.popularity);
+        // 热度 = 点赞 + 收藏 + 评论总数
+        sorted.sort((a, b) =>
+          (b.likeCount + b.favoriteCount + b.commentCount) -
+          (a.likeCount + a.favoriteCount + a.commentCount));
         break;
       case SortType.DYNASTY:
         sorted.sort((a, b) => this.dynastyOrder(a.dynasty) - this.dynastyOrder(b.dynasty));
@@ -477,11 +464,34 @@ export class ArtworkService {
         sorted.sort((a, b) => a.type.localeCompare(b.type));
         break;
       default:
-        // 保持原有顺序
         break;
     }
     const start = (page - 1) * Constants.PAGE_SIZE;
     return sorted.slice(start, start + Constants.PAGE_SIZE);
+  }
+
+  /** 获取全量文物列表（同步，从缓存返回，不分页） */
+  getAllArtworks(sortType: SortType = SortType.DEFAULT): Artwork[] {
+    if (!this.cacheLoaded) {
+      return [];
+    }
+    let sorted = [...this.allArtworks];
+    switch (sortType) {
+      case SortType.POPULAR:
+        sorted.sort((a, b) =>
+          (b.likeCount + b.favoriteCount + b.commentCount) -
+          (a.likeCount + a.favoriteCount + a.commentCount));
+        break;
+      case SortType.DYNASTY:
+        sorted.sort((a, b) => this.dynastyOrder(a.dynasty) - this.dynastyOrder(b.dynasty));
+        break;
+      case SortType.TYPE:
+        sorted.sort((a, b) => a.type.localeCompare(b.type));
+        break;
+      default:
+        break;
+    }
+    return sorted;
   }
 
   /** 获取单个文物（同步，从缓存返回） */
@@ -519,6 +529,7 @@ export class ArtworkService {
 
   /** 切换点赞状态（异步） */
   async toggleLike(artworkId: string): Promise<ToggleResult> {
+    console.info(`toggleLike 被调用, artworkId=${artworkId}`);
     const http = HttpClient.getInstance();
     const result = new ToggleResult();
 
@@ -528,11 +539,13 @@ export class ArtworkService {
         // 取消点赞
         await http.delete<ApiLikeResult>(`/api/likes/${artworkId}`);
         this.likedIds.delete(artworkId);
+        UserService.getInstance().removeLike(artworkId);
         result.isLiked = false;
       } else {
         // 点赞
         await http.post<ApiLikeResult>(`/api/likes/${artworkId}`);
         this.likedIds.add(artworkId);
+        UserService.getInstance().addLike(artworkId);
         result.isLiked = true;
       }
 
@@ -543,6 +556,12 @@ export class ArtworkService {
         artwork.likeCount += result.isLiked ? 1 : -1;
       }
       result.likeCount = artwork?.likeCount || 0;
+
+      // 通知各页面刷新
+      try {
+        AppStorage.SetOrCreate<number>('userDataRefresh', Date.now());
+      } catch (_) {
+      }
     } catch (e) {
       console.error(`切换点赞失败: ${(e as Error).message}`);
       throw new Error((e as Error).message);
@@ -573,10 +592,12 @@ export class ArtworkService {
       if (isCurrentlyCollected) {
         await http.delete<ApiFavoriteResult>(`/api/collections/${artworkId}`);
         this.collectedIds.delete(artworkId);
+        UserService.getInstance().removeCollection(artworkId);
         result.isFavorited = false;
       } else {
         await http.post<ApiFavoriteResult>(`/api/collections/${artworkId}`);
         this.collectedIds.add(artworkId);
+        UserService.getInstance().addCollection(artworkId);
         result.isFavorited = true;
       }
 
@@ -586,6 +607,12 @@ export class ArtworkService {
         artwork.favoriteCount += result.isFavorited ? 1 : -1;
       }
       result.favoriteCount = artwork?.favoriteCount || 0;
+
+      // 通知各页面刷新
+      try {
+        AppStorage.SetOrCreate<number>('userDataRefresh', Date.now());
+      } catch (_) {
+      }
     } catch (e) {
       console.error(`切换收藏失败: ${(e as Error).message}`);
       throw new Error((e as Error).message);
@@ -610,13 +637,13 @@ export class ArtworkService {
   async fetchComments(artworkId: string): Promise<Comment[]> {
     const http = HttpClient.getInstance();
     try {
-      const response = await http.get<ApiCommentListResponse>(`/api/comments/${artworkId}`);
-      const comments = response.comments ? response.comments.map(mapComment) : [];
+      const response = await http.get<ApiCommentOut[]>(`/api/comments/${artworkId}`);
+      const comments = response ? response.map(mapComment) : [];
 
       // 更新缓存中的评论数
       const artwork = this.allArtworks.find(a => a.id === artworkId);
       if (artwork) {
-        artwork.commentCount = response.total || comments.length;
+        artwork.commentCount = comments.length;
       }
 
       return comments;
@@ -640,8 +667,8 @@ export class ArtworkService {
       if (parentId) {
         body['parent_id'] = parentId;
       }
-      const response = await http.post<ApiCommentCreateResponse>('/api/comments', body);
-      const comment = mapComment(response.comment);
+      const response = await http.post<ApiCommentOut>('/api/comments', body);
+      const comment = mapComment(response);
 
       // 更新缓存中的评论数
       const artwork = this.allArtworks.find(a => a.id === artworkId);
@@ -652,6 +679,36 @@ export class ArtworkService {
       return comment;
     } catch (e) {
       console.error(`添加评论失败: ${(e as Error).message}`);
+      return null;
+    }
+  }
+
+  // ════════════ 评论点赞 ════════════
+
+  /** 切换评论点赞状态 */
+  async toggleCommentLike(commentId: string): Promise<CommentLikeResult | null> {
+    const http = HttpClient.getInstance();
+    try {
+      // 先尝试 POST 点赞，如果返回 409（已点赞）则改调 DELETE 取消点赞
+      try {
+        const result = await http.post<ApiCommentLikeResponse>(`/api/comments/${commentId}/like`);
+        const likeResult = new CommentLikeResult();
+        likeResult.isLiked = result.is_liked;
+        likeResult.likeCount = result.like_count;
+        return likeResult;
+      } catch (postErr) {
+        const msg = (postErr as Error).message;
+        if (msg.includes('已经点过赞了') || msg.includes('409')) {
+          const result = await http.delete<ApiCommentLikeResponse>(`/api/comments/${commentId}/like`);
+          const likeResult = new CommentLikeResult();
+          likeResult.isLiked = result.is_liked;
+          likeResult.likeCount = result.like_count;
+          return likeResult;
+        }
+        throw new Error(msg);
+      }
+    } catch (e) {
+      console.error(`评论点赞失败: ${(e as Error).message}`);
       return null;
     }
   }

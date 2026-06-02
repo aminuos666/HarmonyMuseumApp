@@ -1,5 +1,6 @@
 import { Artwork, ArtworkImage, AudioGuide, VideoGuide } from '../model/Artwork';
 import { Dynasty } from '../utils/Constants';
+import { HttpClient } from '../service/HttpClient';
 
 export class MockArtworks {
   static getArtworks(): Artwork[] {
@@ -75,7 +76,7 @@ export class MockArtworks {
       img.height = i === 0 ? 1600 : 800;
       artwork.images.push(img);
     }
-    artwork.coverImage = artwork.images[coverIdx]?.url || artwork.images[0]?.url;
+    artwork.coverImage = `${HttpClient.getInstance().getBaseUrl()}/images/${id}.jpg`;
 
     // 生成图像特征向量（以图搜图用）- 128维模拟特征
     artwork.imageFeature = [];

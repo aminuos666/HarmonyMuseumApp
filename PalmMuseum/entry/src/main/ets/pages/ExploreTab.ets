@@ -1,29 +1,18 @@
 import router from '@ohos.router';
 import { Artwork } from '../model/Artwork';
-import { SearchService } from '../service/SearchService';
-import { SpeechService } from '../service/SpeechService';
 import { ArtworkService } from '../service/ArtworkService';
-import { ImageSearchService } from '../service/ImageSearchService';
 import { Dynasty } from '../utils/Constants';
 import { ArtworkCard } from '../component/ArtworkCard';
+import { SearchBar } from '../component/SearchBar';
 
 @Component
 export struct ExploreTab {
-  @State private searchText: string = '';
-  @State private hotSearches: string[] = [
-    '青花瓷', '汝窑', '粉彩', '唐三彩', '斗彩',
-    '梅瓶', '雍正', '乾隆', '景德镇', '宋代'
-  ];
-  @State private isListening: boolean = false;
   @State private categoryArtworks: Artwork[] = [];
   @State private selectedDynasty: string = '全部';
   @State private exploreSections: ExploreSection[] = [];
   @State private isInitialized: boolean = false;
 
-  private searchService = SearchService.getInstance();
-  private speechService = SpeechService.getInstance();
   private artworkService = ArtworkService.getInstance();
-  private imageSearchService = ImageSearchService.getInstance();
 
   aboutToAppear(): void {
     // 先从缓存加载
@@ -61,7 +50,7 @@ export struct ExploreTab {
           .fontWeight(FontWeight.Bold)
         Blank()
         // 以图搜图快捷入口
-        Button() {
+        /*Button() {
           Row({ space: 4 }) {
             Text('📷')
               .fontSize(16)
@@ -75,70 +64,9 @@ export struct ExploreTab {
         .borderRadius(16)
         .onClick(() => {
           router.pushUrl({ url: 'pages/ImageSearchPage' });
-        })
+        })*/
       }
       .padding({ left: 16, right: 16, top: 8, bottom: 4 })
-
-      // 搜索栏
-      Row({ space: 8 }) {
-        Row({ space: 6 }) {
-          Text('🔍')
-            .fontSize(16)
-          TextInput({
-            placeholder: '搜索文物名称、朝代、关键字...',
-            text: this.searchText
-          })
-            .layoutWeight(1)
-            .height(40)
-            .fontSize(15)
-            .placeholderColor($r('app.color.text_hint'))
-            .backgroundColor(Color.Transparent)
-            .onChange((value: string) => {
-              this.searchText = value;
-            })
-            .onSubmit(() => {
-              if (this.searchText.length > 0) {
-                router.pushUrl({
-                  url: 'pages/SearchPage',
-                  params: { keyword: this.searchText }
-                });
-                this.searchText = '';
-              }
-            })
-        }
-        .padding({ left: 12, right: 4 })
-        .backgroundColor($r('app.color.search_bar_background'))
-        .borderRadius(20)
-        .layoutWeight(1)
-        .height(40)
-
-        // 语音搜索
-        Button() {
-          Text('🎤')
-            .fontSize(18)
-        }
-        .width(40)
-        .height(40)
-        .backgroundColor(this.isListening ?
-          $r('app.color.error') : $r('app.color.primary'))
-        .borderRadius(20)
-        .onClick(async () => {
-          this.isListening = true;
-          try {
-            const result = await this.speechService.startListening();
-            if (result && result.length > 0) {
-              router.pushUrl({
-                url: 'pages/SearchPage',
-                params: { keyword: result }
-              });
-            }
-          } catch (e) {
-            console.error('Voice search error');
-          }
-          this.isListening = false;
-        })
-      }
-      .padding({ left: 16, right: 16, bottom: 8 })
 
       if (!this.isInitialized) {
         LoadingProgress()
@@ -149,8 +77,13 @@ export struct ExploreTab {
       } else {
         Scroll() {
           Column({ space: 20 }) {
-            // 热门搜索标签
-            this.buildHotSearches()
+            // 搜索栏（点击跳转搜索页）
+            SearchBar({
+              showVoiceButton: false,
+              onTap: () => {
+                router.pushUrl({ url: 'pages/SearchEntryPage' });
+              }
+            })
 
             // 功能快捷入口
             this.buildQuickActions()
@@ -164,51 +97,12 @@ export struct ExploreTab {
         }
         .scrollable(ScrollDirection.Vertical)
         .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
       }
     }
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.background'))
-  }
-
-  @Builder
-  buildHotSearches(): void {
-    Column({ space: 10 }) {
-      Row() {
-        Text('🔥 热门搜索')
-          .fontSize(15)
-          .fontColor($r('app.color.text_primary'))
-          .fontWeight(FontWeight.Medium)
-        Blank()
-        Text('📋 更多 >')
-          .fontSize(12)
-          .fontColor($r('app.color.text_hint'))
-      }
-      .width('100%')
-
-      Flex({ wrap: FlexWrap.Wrap }) {
-        ForEach(this.hotSearches, (keyword: string) => {
-          Text(keyword)
-            .fontSize(13)
-            .fontColor($r('app.color.text_secondary'))
-            .backgroundColor($r('app.color.background_card'))
-            .borderRadius(16)
-            .padding({ left: 14, right: 14, top: 6, bottom: 6 })
-            .margin({ bottom: 6, right: 6 })
-            .onClick(() => {
-              router.pushUrl({
-                url: 'pages/SearchPage',
-                params: { keyword: keyword }
-              });
-            })
-        })
-      }
-      .width('100%')
-    }
-    .width('100%')
-    .padding(12)
-    .backgroundColor($r('app.color.background_card'))
-    .borderRadius(12)
   }
 
   @Builder
@@ -218,31 +112,26 @@ export struct ExploreTab {
       this.buildActionItem('📷', '以图搜图', () => {
         router.pushUrl({ url: 'pages/ImageSearchPage' });
       })
-      // 语音搜索
-      this.buildActionItem('🎤', '语音搜索', async () => {
-        this.isListening = true;
-        try {
-          const result = await this.speechService.startListening();
-          if (result && result.length > 0) {
-            router.pushUrl({
-              url: 'pages/SearchPage',
-              params: { keyword: result }
-            });
-          }
-        } catch (e) {
-          console.error('Voice search error');
-        }
-        this.isListening = false;
-      })
       // 语音问答
       this.buildActionItem('💬', '语音问答', () => {
         router.pushUrl({ url: 'pages/SearchPage' });
       })
       // 分类浏览
-      this.buildActionItem('🏛️', '分类浏览', () => {})
+      this.buildActionItem('🏛️', '分类浏览', () => {
+        router.pushUrl({ url: 'pages/BrowsePage' });
+      })
     }
     .width('100%')
     .justifyContent(FlexAlign.SpaceAround)
+  }
+
+  private sectionDynasty(title: string): string {
+    switch (title) {
+      case '唐代风华': return '唐';
+      case '宋韵流芳': return '宋';
+      case '明清精粹': return '明,清';
+      default: return title.replace('热门推荐', '');
+    }
   }
 
   @Builder
@@ -272,9 +161,11 @@ export struct ExploreTab {
           .fontSize(12)
           .fontColor($r('app.color.primary'))
           .onClick(() => {
+            // 根据区块标题传递对应的年代标签
+            const dynasty = this.sectionDynasty(section.title);
             router.pushUrl({
-              url: 'pages/SearchPage',
-              params: { keyword: section.title }
+              url: 'pages/BrowsePage',
+              params: { dynasty: dynasty }
             });
           })
       }
@@ -321,6 +212,7 @@ export struct ExploreTab {
         }
         .scrollable(ScrollDirection.Horizontal)
         .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
         .height(220)
       } else {
         Text('暂无内容')

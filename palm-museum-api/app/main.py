@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.database import engine, Base
 from app.routers import artworks, auth, users, interactions, history, comments, image_search
@@ -38,6 +40,15 @@ app.include_router(interactions.router)
 app.include_router(history.router)
 app.include_router(comments.router)
 app.include_router(image_search.router)
+
+# 挂载静态文件（音频、图片等）
+audio_dir = Path(__file__).resolve().parent.parent / "audio"
+audio_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/audio", StaticFiles(directory=str(audio_dir)), name="audio")
+
+images_dir = Path(__file__).resolve().parent.parent / "images"
+images_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/images", StaticFiles(directory=str(images_dir)), name="images")
 
 
 @app.get("/")

@@ -1,21 +1,29 @@
 /**
- * 语音服务 - 负责语音合成（TTS）和语音识别（ASR）
+ * 语音服务 - 基于 HarmonyOS Core Speech Kit
  *
- * HarmonyOS 语音能力使用：
- * - @ohos.multimedia.voice: 语音识别服务
- * - @ohos.multimedia.tts: 文本转语音服务
- * - 也可使用系统提供的语音播报API
- *
- * 当前实现为模拟服务，在实际部署时需要：
- * 1. 配置HarmonyOS语音服务权限
- * 2. 初始化语音引擎
- * 3. 实现语音识别回调处理
+ * TTS：@kit.CoreSpeechKit textToSpeech
+ * ASR：@kit.CoreSpeechKit speechRecognizer
  */
+import { textToSpeech } from '@kit.CoreSpeechKit';
+import { speechRecognizer } from '@kit.CoreSpeechKit';
+import { BusinessError } from '@kit.BasicServicesKit';
+
 export class SpeechService {
   private static instance: SpeechService;
+  private ttsEngine?: textToSpeech.TextToSpeechEngine;
+  private asrEngine?: speechRecognizer.SpeechRecognitionEngine;
   private isSpeaking: boolean = false;
-  private isListening: boolean = false;
   private playbackSpeed: number = 1.0;
+  private engineReady: boolean = false;
+  private speakResolve?: () => void;
+
+  // ASR 状态
+  private isListening: boolean = false;
+  private asrSessionId: string = '';
+  private asrRecognizedText: string = '';
+  private asrResolve?: (text: string) => void;
+  private asrReject?: (err: Error) => void;
+  private asrTimeoutId?: number;
 
   private constructor() {}
 
@@ -26,137 +34,89 @@ export class SpeechService {
     return SpeechService.instance;
   }
 
+  // =====================================================
+  //  TTS：文本转语音
+  // =====================================================
+
+  private async ensureTtsEngine(): Promise<textToSpeech.TextToSpeechEngine> {
+    if (this.ttsEngine && this.engineReady) {
+      return this.ttsEngine;
+    }
+    const initParams: textToSpeech.CreateEngineParams = {
+      language: 'zh-CN',
+      person: 0,
+      online: 1,
+      extraParams: { "style": 'interaction-broadcast', "locate": 'CN', "name": 'PalmMuseum' } as Record<string, Object>
+    };
+    return new Promise((resolve, reject) => {
+      textToSpeech.createEngine(initParams, (err: BusinessError, engine: textToSpeech.TextToSpeechEngine) => {
+        if (err) {
+          reject(new Error(err.message || String(err)));
+          return;
+        }
+        this.ttsEngine = engine;
+        this.engineReady = true;
+        engine.setListener({
+          onStart: (_id: string) => {},
+          onComplete: (_id: string) => {
+            this.isSpeaking = false;
+            if (this.speakResolve) { this.speakResolve(); this.speakResolve = undefined; }
+          },
+          onStop: (_id: string) => {
+            this.isSpeaking = false;
+            if (this.speakResolve) { this.speakResolve(); this.speakResolve = undefined; }
+          },
+          onError: (_id: string, _code: number, _msg: string) => {
+            this.isSpeaking = false;
+            if (this.speakResolve) { this.speakResolve(); this.speakResolve = undefined; }
+          },
+        } as textToSpeech.SpeakListener);
+        resolve(engine);
+      });
+    });
+  }
+
   /**
-   * 播放文物语音讲解
-   *
-   * @param text 讲解文本
-   * @param speed 播放速度（0.5~2.0）
+   * 播放文本语音
    */
-  async playGuide(text: string, speed: number = 1.0): Promise<void> {
+  async speak(text: string, speed: number = 1.0): Promise<void> {
     if (this.isSpeaking) {
       await this.stopSpeaking();
     }
-
+    if (!text || text.trim().length === 0) {
+      return;
+    }
     this.isSpeaking = true;
     this.playbackSpeed = speed;
 
-    console.info(`SpeechService: Playing guide (speed: ${speed}x)`);
-    console.info(`Guide text length: ${text.length} characters`);
+    const engine = await this.ensureTtsEngine();
+    const extraParam: Record<string, Object> = {
+      "speed": speed, "volume": 2, "pitch": 1, "languageContext": 'zh-CN', "audioType": "pcm"
+    };
+    const speakParams: textToSpeech.SpeakParams = {
+      requestId: `tts_${Date.now()}`,
+      extraParams: extraParam
+    };
+    engine.speak(text, speakParams);
 
-    // 真实实现：
-    // const tts = await import('@ohos.multimedia.tts');
-    // const ttsClient = tts.createTtsClient();
-    // ttsClient.speak(text, { speed: speed, pitch: 1.0, volume: 1.0 });
-
-    // 模拟播放过程
-    const playDuration = Math.min(30000, text.length * 50 / speed);
-    await this.simulatePlayback(playDuration);
-
-    this.isSpeaking = false;
-    console.info('SpeechService: Guide playback completed');
+    return new Promise<void>((resolve) => {
+      this.speakResolve = resolve;
+    });
   }
 
   /**
    * 停止播放
    */
   async stopSpeaking(): Promise<void> {
-    if (this.isSpeaking) {
-      console.info('SpeechService: Stopping playback');
-      this.isSpeaking = false;
+    if (this.isSpeaking && this.ttsEngine) {
+      this.ttsEngine.stop();
     }
-  }
-
-  /**
-   * 开始语音识别（语音搜索）
-   *
-   * @returns 识别后的文本
-   */
-  async startListening(): Promise<string> {
-    if (this.isListening) {
-      throw new Error('Already listening');
-    }
-
-    this.isListening = true;
-    console.info('SpeechService: Started listening');
-
-    // 真实实现：
-    // const voice = await import('@ohos.multimedia.voice');
-    // const voiceRecognizer = voice.createVoiceRecognizer();
-    // return await voiceRecognizer.startListening();
-
-    // 模拟语音识别过程
-    await this.simulatePlayback(3000);
-    this.isListening = false;
-
-    // 模拟识别结果（随机选择一个文物名称）
-    const mockResults = [
-      '元青花缠枝牡丹纹梅瓶',
-      '宋代汝窑瓷器',
-      '唐三彩',
-      '青花瓷',
-      '粉彩百鹿图',
-      '乾隆时期的瓷器',
-      '景德镇瓷器'
-    ];
-    const result = mockResults[Math.floor(Math.random() * mockResults.length)];
-    console.info(`SpeechService: Recognized: "${result}"`);
-    return result;
-  }
-
-  /**
-   * 停止语音识别
-   */
-  stopListening(): void {
-    if (this.isListening) {
-      console.info('SpeechService: Stopped listening');
-      this.isListening = false;
-    }
-  }
-
-  /**
-   * 语音问答 - 用户提问后返回语音答案
-   *
-   * @param question 用户语音识别后的问題文本
-   * @returns 答案语音文本
-   */
-  async askQuestion(question: string): Promise<string> {
-    console.info(`SpeechService: Question: "${question}"`);
-
-    // 模拟问答处理
-    await this.simulatePlayback(1500);
-
-    // 基于关键词的简单问答
-    const answers: Record<string, string> = {
-      '什么年代': '这件文物的年代在文物详情页中有详细记载，您可以查看相关信息。',
-      '哪里出土': '这件文物的出土地点信息在详情页的"基本信息"栏目中。',
-      '价值': '文物的价值不仅体现在经济价值上，更重要的是其历史文化价值和艺术价值。',
-      '工艺': '这件文物采用了传统工艺制作，具体工艺特点可查看详情页的"工艺技法"部分。',
-      '收藏': '这件文物目前收藏于博物馆中，欢迎您前往参观。',
-      '青花': '青花瓷是中国陶瓷的代表品种，使用钴料在釉下绘制纹饰，经高温烧制而成。',
-      '汝窑': '汝窑为宋代五大名窑之首，以天青釉色闻名于世，传世品极为稀少。',
-      '唐三彩': '唐三彩是唐代低温铅釉陶器，以黄、绿、白三色为主，是盛唐气象的生动体现。',
-    };
-
-    let answer = '感谢您的提问。这件文物蕴含丰富的历史文化信息，建议您浏览文物详情页面获取更详细的介绍。';
-    const answerKeys = Object.keys(answers);
-    for (let i = 0; i < answerKeys.length; i++) {
-      const key = answerKeys[i];
-      if (question.includes(key)) {
-        answer = answers[key];
-        break;
-      }
-    }
-
-    console.info(`SpeechService: Answer: "${answer}"`);
-    return answer;
+    this.isSpeaking = false;
+    this.speakResolve = undefined;
   }
 
   get isCurrentlySpeaking(): boolean {
     return this.isSpeaking;
-  }
-
-  get isCurrentlyListening(): boolean {
-    return this.isListening;
   }
 
   setSpeed(speed: number): void {
@@ -167,24 +127,157 @@ export class SpeechService {
     return this.playbackSpeed;
   }
 
-  /**
-   * 模拟播放延迟
-   */
-  private simulatePlayback(ms: number): Promise<void> {
-    return new Promise<void>(resolve => {
-      const interval = 100;
-      const checkId = setInterval(() => {
-        if (!this.isSpeaking && ms > 1000) {
-          clearInterval(checkId);
-          resolve();
+  // =====================================================
+  //  ASR：语音识别
+  //  - 第一次点击 🎤：开始识别
+  //  - 第二次点击（🔴）：结束识别，返回已收集的文字
+  // =====================================================
+
+  private async ensureAsrEngine(): Promise<speechRecognizer.SpeechRecognitionEngine> {
+    if (this.asrEngine) {
+      return this.asrEngine;
+    }
+    const initParams: speechRecognizer.CreateEngineParams = {
+      language: 'zh-CN',
+      online: 1,
+      extraParams: { "locate": "CN", "recognizerMode": "short" } as Record<string, Object>
+    };
+    return new Promise((resolve, reject) => {
+      speechRecognizer.createEngine(initParams, (err: BusinessError, engine: speechRecognizer.SpeechRecognitionEngine) => {
+        if (err) {
+          reject(new Error(err.message || String(err)));
           return;
         }
-      }, interval);
-
-      setTimeout(() => {
-        clearInterval(checkId);
-        resolve();
-      }, ms);
+        this.asrEngine = engine;
+        engine.setListener({
+          onStart: (_sid: string, _msg: string) => {},
+          onEvent: (_sid: string, _code: number, _msg: string) => {},
+          onResult: (_sid: string, result: speechRecognizer.SpeechRecognitionResult) => {
+            if (result.result) {
+              this.asrRecognizedText = result.result;
+            }
+          },
+          onComplete: (_sid: string, _msg: string) => {
+            this.finishListening();
+          },
+          onError: (_sid: string, _code: number, _msg: string) => {
+            this.finishListening();
+          },
+        } as speechRecognizer.RecognitionListener);
+        resolve(engine);
+      });
     });
+  }
+
+  /**
+   * 开始语音识别，返回 Promise
+   * 结果在 onComplete 或用户手动结束时 resolve
+   */
+  async startListening(): Promise<string> {
+    if (this.isListening) {
+      throw new Error('Already listening');
+    }
+    this.isListening = true;
+    this.asrRecognizedText = '';
+
+    try {
+      const engine = await this.ensureAsrEngine();
+      this.asrSessionId = `asr_${Date.now()}`;
+      engine.startListening({
+        sessionId: this.asrSessionId,
+        audioInfo: { audioType: 'pcm', sampleRate: 16000, soundChannel: 1, sampleBit: 16 }
+      } as speechRecognizer.StartParams);
+
+      return new Promise<string>((resolve, reject) => {
+        this.asrResolve = resolve;
+        this.asrReject = reject;
+        // 15 秒超时自动结束
+        this.asrTimeoutId = setTimeout(() => {
+          this.cancelListening();
+        }, 15000);
+      });
+    } catch (err) {
+      this.isListening = false;
+      throw new Error(String(err));
+    }
+  }
+
+  /**
+   * 手动结束识别（第二次点击）
+   * 调用引擎 finish → 触发 onComplete → resolve 已收集的文字
+   */
+  cancelListening(): void {
+    if (this.asrTimeoutId) {
+      clearTimeout(this.asrTimeoutId);
+      this.asrTimeoutId = undefined;
+    }
+    if (this.asrEngine && this.asrSessionId) {
+      try {
+        this.asrEngine.finish(this.asrSessionId);
+      } catch (_) {
+        this.finishListening();
+      }
+    } else {
+      this.finishListening();
+    }
+  }
+
+  private finishListening(): void {
+    if (this.asrTimeoutId) {
+      clearTimeout(this.asrTimeoutId);
+      this.asrTimeoutId = undefined;
+    }
+    this.isListening = false;
+    this.asrSessionId = '';
+    if (this.asrResolve) {
+      this.asrResolve(this.asrRecognizedText);
+      this.asrResolve = undefined;
+    }
+    this.asrReject = undefined;
+  }
+
+  get isCurrentlyListening(): boolean {
+    return this.isListening;
+  }
+
+  // =====================================================
+  //  语音问答
+  // =====================================================
+
+  async askQuestion(question: string): Promise<string> {
+    const answers: Record<string, string> = {
+      '什么年代': '这件文物的年代在文物详情页中有详细记载。',
+      '哪里出土': '这件文物的出土地点信息在详情页的基本信息栏目中。',
+      '价值': '文物不仅具有经济价值，更重要的是其历史文化价值和艺术价值。',
+      '工艺': '这件文物采用了传统工艺制作。',
+      '收藏': '这件文物目前收藏于博物馆中，欢迎前往参观。',
+      '青花': '青花瓷是中国陶瓷的代表品种，使用钴料在釉下绘制纹饰。',
+      '汝窑': '汝窑为宋代五大名窑之首，以天青釉色闻名于世。',
+      '唐三彩': '唐三彩是唐代低温铅釉陶器，以黄绿白三色为主。',
+    };
+    let answer = '感谢您的提问。建议浏览文物详情页面获取更详细的介绍。';
+    for (const key of Object.keys(answers)) {
+      if (question.includes(key)) { answer = answers[key]; break; }
+    }
+    return answer;
+  }
+
+  // =====================================================
+  //  资源管理
+  // =====================================================
+
+  shutdown(): void {
+    this.cancelListening();
+    if (this.isSpeaking && this.ttsEngine) {
+      this.ttsEngine.stop();
+    }
+    if (this.ttsEngine) {
+      this.ttsEngine.shutdown();
+      this.ttsEngine = undefined;
+      this.engineReady = false;
+    }
+    this.asrEngine = undefined;
+    this.isSpeaking = false;
+    this.isListening = false;
   }
 }

@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -25,3 +27,18 @@ def get_current_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在")
     return user
+
+
+def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(
+        HTTPBearer(auto_error=False)
+    ),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """可选的用户认证——有 token 则返回用户，无 token 则返回 None（不报错）"""
+    if credentials is None:
+        return None
+    try:
+        return get_current_user(credentials=credentials, db=db)
+    except HTTPException:
+        return None
