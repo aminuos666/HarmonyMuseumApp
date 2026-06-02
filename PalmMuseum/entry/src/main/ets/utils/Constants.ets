@@ -11,7 +11,7 @@ export class Constants {
   // 按调试场景切换，只改下面这一行即可
   // =====================================================
   // 模拟器调试（推荐）：模拟器通过宿主机 10.0.2.2 访问本机
-  static readonly API_BASE_URL: string = 'http://10.4.122.57:8000';
+  static readonly API_BASE_URL: string = 'http://10.0.2.2:8000';
   // 真机调试（USB/WiFi）：替换为你电脑的局域网IP，如
   // static readonly API_BASE_URL: string = 'http://192.168.1.100:8000';
   // 真机调试（同一网段WiFi）：ipconfig 查看本机IPv4地址后替换
